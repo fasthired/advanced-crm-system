@@ -1,0 +1,75 @@
+================================================================================
+                    SUPABASE CREDENTIALS - WHERE TO FIND THEM
+================================================================================
+
+Your Project: https://rxjaqhtttcrhabjprcdb.supabase.co
+
+STEP 1: Login to Supabase
+  → Go to https://app.supabase.com
+  → Select your project "rxjaqhtttcrhabjprcdb"
+
+STEP 2: Go to Settings > API
+  → Click "Settings" in left sidebar
+  → Click "API"
+
+STEP 3: Copy These Three Keys
+
+KEY #1: Project URL
+  Location: Under "Project URL"
+  Format: https://rxjaqhtttcrhabjprcdb.supabase.co
+  Copy this ↓
+
+KEY #2: Anon Public Key  
+  Location: Under "Project API keys" → "anon public"
+  Format: eyJhbGc....... (long alphanumeric string)
+  Copy this ↓
+
+KEY #3: Service Role Key (SECRET - DO NOT SHARE)
+  Location: Under "Project API keys" → "service_role" 
+  Format: eyJhbGc....... (long alphanumeric string, LONGER than anon key)
+  Copy this ↓
+  ⚠️  KEEP THIS SECRET - DO NOT COMMIT TO GIT
+
+================================================================================
+                        WHAT EACH KEY IS USED FOR
+================================================================================
+
+NEXT_PUBLIC_SUPABASE_URL = Your project URL
+  → Used by browser and backend
+  → PUBLIC (safe to commit to git)
+  → Example: https://rxjaqhtttcrhabjprcdb.supabase.co
+
+NEXT_PUBLIC_SUPABASE_ANON_KEY = Anon public key
+  → Used by browser (limited access via RLS)
+  → PUBLIC (safe to commit to git)
+  → Example: eyJhbGc... (shorter key)
+
+SUPABASE_SERVICE_ROLE_KEY = Service role key
+  → Used ONLY on backend (full database access)
+  → SECRET (DO NOT commit to git)
+  → Example: eyJhbGc... (longer key, MORE powerful)
+
+================================================================================
+                            PROVIDE YOUR KEYS
+================================================================================
+
+Once you have copied the three keys above, reply with:
+
+NEXT_PUBLIC_SUPABASE_URL = [paste your URL here]
+NEXT_PUBLIC_SUPABASE_ANON_KEY = [paste your anon key here]
+SUPABASE_SERVICE_ROLE_KEY = [paste your service role key here]
+
+Then I will:
+  1. Create your .env.local file
+  2. Setup RLS policies (secure database access)
+  3. Configure service role authentication
+  4. Create admin setup endpoint
+  5. Test everything works
+
+⚠️  SECURITY NOTE:
+  - The service role key is SECRET and powerful
+  - Only use it on your backend
+  - Never commit it to git
+  - Never put it in client-side code
+
+================================================================================
