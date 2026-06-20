@@ -12,6 +12,7 @@ import {
   ClipboardList,
   BarChart3,
   ShieldCheck,
+  Settings,
 } from 'lucide-react';
 
 const mobileItems = [
@@ -21,6 +22,7 @@ const mobileItems = [
   { icon: CheckCircle2, label: 'Follow-ups', href: '/dashboard/follow-ups' },
   { icon: ClipboardList, label: 'Tasks', href: '/dashboard/tasks' },
   { icon: BarChart3, label: 'Analytics', href: '/dashboard/analytics' },
+  { icon: Settings, label: 'Settings', href: '/dashboard/settings' },
 ];
 
 export default function MobileNav() {
@@ -30,22 +32,26 @@ export default function MobileNav() {
     ? [
         mobileItems[0],
         { icon: ShieldCheck, label: 'Admin', href: '/dashboard/admin' },
-        ...mobileItems.slice(1, 4),
+        ...mobileItems.slice(1),
       ]
-    : mobileItems.slice(0, 5);
+    : mobileItems;
 
   return (
-    <div className="flex justify-around h-16 items-center">
+    <div className="flex h-18 items-center gap-1 overflow-x-auto px-2 py-2 touch-pan-x overscroll-x-contain [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
       {visibleItems.map((item) => {
         const Icon = item.icon;
         const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
 
         return (
-          <Link key={item.href} href={item.href} className="flex flex-col items-center gap-1 flex-1">
+          <Link
+            key={item.href}
+            href={item.href}
+            className="flex min-w-20 flex-none snap-center flex-col items-center gap-1 rounded-lg px-2 py-1"
+          >
             <div
               className={`transition-colors p-2 rounded-lg ${
                 isActive
-                  ? 'text-blue-400'
+                  ? 'bg-blue-600/15 text-blue-400'
                   : 'text-slate-400 hover:text-slate-300'
               }`}
             >
