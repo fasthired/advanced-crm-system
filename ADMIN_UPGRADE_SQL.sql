@@ -29,14 +29,10 @@ SET role = 'admin',
     full_name = COALESCE(full_name, 'Admin User')
 WHERE lower(email) = lower('f.hiredandtravels@gmail.com');
 
-DO $$
-BEGIN
-  ALTER TABLE public.users
-    ADD CONSTRAINT users_account_status_check
-    CHECK (account_status IN ('active', 'disabled', 'banned', 'removed'));
-EXCEPTION
-  WHEN duplicate_object THEN NULL;
-END $$;
+ALTER TABLE public.users DROP CONSTRAINT IF EXISTS users_account_status_check;
+ALTER TABLE public.users
+  ADD CONSTRAINT users_account_status_check
+  CHECK (account_status IN ('active', 'disabled', 'banned', 'removed'));
 
 CREATE UNIQUE INDEX IF NOT EXISTS users_single_admin_idx
   ON public.users ((role))
@@ -56,57 +52,51 @@ CREATE TRIGGER prevent_user_profile_delete_trigger
   FOR EACH ROW EXECUTE FUNCTION public.prevent_user_profile_delete();
 
 -- Stop auth.users deletion from cascading into public user profiles.
-DO $$
-BEGIN
-  ALTER TABLE public.users DROP CONSTRAINT IF EXISTS users_id_fkey;
-  ALTER TABLE public.users
-    ADD CONSTRAINT users_id_fkey
-    FOREIGN KEY (id) REFERENCES auth.users(id) ON DELETE RESTRICT;
-END $$;
+ALTER TABLE public.users DROP CONSTRAINT IF EXISTS users_id_fkey;
+ALTER TABLE public.users
+  ADD CONSTRAINT users_id_fkey
+  FOREIGN KEY (id) REFERENCES auth.users(id) ON DELETE RESTRICT;
 
 -- Stop deleting a user from deleting their CRM history.
-DO $$
-BEGIN
-  ALTER TABLE public.customers DROP CONSTRAINT IF EXISTS customers_user_id_fkey;
-  ALTER TABLE public.customers
-    ADD CONSTRAINT customers_user_id_fkey
-    FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE RESTRICT;
+ALTER TABLE public.customers DROP CONSTRAINT IF EXISTS customers_user_id_fkey;
+ALTER TABLE public.customers
+  ADD CONSTRAINT customers_user_id_fkey
+  FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE RESTRICT;
 
-  ALTER TABLE public.calls DROP CONSTRAINT IF EXISTS calls_user_id_fkey;
-  ALTER TABLE public.calls
-    ADD CONSTRAINT calls_user_id_fkey
-    FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE RESTRICT;
+ALTER TABLE public.calls DROP CONSTRAINT IF EXISTS calls_user_id_fkey;
+ALTER TABLE public.calls
+  ADD CONSTRAINT calls_user_id_fkey
+  FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE RESTRICT;
 
-  ALTER TABLE public.follow_ups DROP CONSTRAINT IF EXISTS follow_ups_user_id_fkey;
-  ALTER TABLE public.follow_ups
-    ADD CONSTRAINT follow_ups_user_id_fkey
-    FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE RESTRICT;
+ALTER TABLE public.follow_ups DROP CONSTRAINT IF EXISTS follow_ups_user_id_fkey;
+ALTER TABLE public.follow_ups
+  ADD CONSTRAINT follow_ups_user_id_fkey
+  FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE RESTRICT;
 
-  ALTER TABLE public.reminders DROP CONSTRAINT IF EXISTS reminders_user_id_fkey;
-  ALTER TABLE public.reminders
-    ADD CONSTRAINT reminders_user_id_fkey
-    FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE RESTRICT;
+ALTER TABLE public.reminders DROP CONSTRAINT IF EXISTS reminders_user_id_fkey;
+ALTER TABLE public.reminders
+  ADD CONSTRAINT reminders_user_id_fkey
+  FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE RESTRICT;
 
-  ALTER TABLE public.tasks DROP CONSTRAINT IF EXISTS tasks_user_id_fkey;
-  ALTER TABLE public.tasks
-    ADD CONSTRAINT tasks_user_id_fkey
-    FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE RESTRICT;
+ALTER TABLE public.tasks DROP CONSTRAINT IF EXISTS tasks_user_id_fkey;
+ALTER TABLE public.tasks
+  ADD CONSTRAINT tasks_user_id_fkey
+  FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE RESTRICT;
 
-  ALTER TABLE public.notifications DROP CONSTRAINT IF EXISTS notifications_user_id_fkey;
-  ALTER TABLE public.notifications
-    ADD CONSTRAINT notifications_user_id_fkey
-    FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE RESTRICT;
+ALTER TABLE public.notifications DROP CONSTRAINT IF EXISTS notifications_user_id_fkey;
+ALTER TABLE public.notifications
+  ADD CONSTRAINT notifications_user_id_fkey
+  FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE RESTRICT;
 
-  ALTER TABLE public.activities DROP CONSTRAINT IF EXISTS activities_user_id_fkey;
-  ALTER TABLE public.activities
-    ADD CONSTRAINT activities_user_id_fkey
-    FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE RESTRICT;
+ALTER TABLE public.activities DROP CONSTRAINT IF EXISTS activities_user_id_fkey;
+ALTER TABLE public.activities
+  ADD CONSTRAINT activities_user_id_fkey
+  FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE RESTRICT;
 
-  ALTER TABLE public.analytics DROP CONSTRAINT IF EXISTS analytics_user_id_fkey;
-  ALTER TABLE public.analytics
-    ADD CONSTRAINT analytics_user_id_fkey
-    FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE RESTRICT;
-END $$;
+ALTER TABLE public.analytics DROP CONSTRAINT IF EXISTS analytics_user_id_fkey;
+ALTER TABLE public.analytics
+  ADD CONSTRAINT analytics_user_id_fkey
+  FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE RESTRICT;
 
 CREATE OR REPLACE FUNCTION public.is_admin()
 RETURNS BOOLEAN LANGUAGE sql SECURITY DEFINER STABLE SET search_path = public AS $$
