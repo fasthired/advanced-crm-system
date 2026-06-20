@@ -164,14 +164,16 @@ export default function FollowUpsPage() {
                       {new Date(followUp.scheduled_date).toLocaleString()}
                     </p>
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => handleDelete(followUp.id)}
-                    className="text-red-400 flex-shrink-0"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
+                  {user?.role === 'admin' && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handleDelete(followUp.id)}
+                      className="text-red-400 flex-shrink-0"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  )}
                 </div>
               ))}
             </div>
@@ -199,14 +201,16 @@ export default function FollowUpsPage() {
                     </p>
                     <p className="text-sm text-slate-500 mt-1">{followUp.description}</p>
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => handleDelete(followUp.id)}
-                    className="text-red-400 flex-shrink-0"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
+                  {user?.role === 'admin' && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handleDelete(followUp.id)}
+                      className="text-red-400 flex-shrink-0"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  )}
                 </div>
               ))}
             </div>

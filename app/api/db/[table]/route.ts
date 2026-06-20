@@ -15,11 +15,11 @@ export async function GET(request: Request, context: RouteContext) {
 
   const url = new URL(request.url);
   const requestedUserId = url.searchParams.get('userId');
-  if (requestedUserId && requestedUserId !== authed.user.id) {
+  if (requestedUserId && requestedUserId !== authed.user.id && !authed.isAdmin) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
-  if (!requestedUserId) {
+  if (!requestedUserId && !authed.isAdmin) {
     url.searchParams.set('userId', authed.user.id);
   }
 
@@ -43,7 +43,7 @@ export async function POST(request: Request, context: RouteContext) {
   if ('response' in authed) return authed.response;
 
   const payload = await request.json();
-  if (!ownsPayload(payload, authed.user.id)) {
+  if (!authed.isAdmin && !ownsPayload(payload, authed.user.id)) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 

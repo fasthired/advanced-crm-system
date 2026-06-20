@@ -102,7 +102,7 @@ export default function NewTaskPage() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="space-y-2">
                 <label className="text-sm font-medium text-slate-300">Priority</label>
-                <Select value={formData.priority} onValueChange={(v) => handleSelectChange('priority', v)}>
+                <Select value={formData.priority} onValueChange={(v) => v && handleSelectChange('priority', v)}>
                   <SelectTrigger className="bg-slate-900 border-slate-700 text-white">
                     <SelectValue />
                   </SelectTrigger>
@@ -117,7 +117,7 @@ export default function NewTaskPage() {
 
               <div className="space-y-2">
                 <label className="text-sm font-medium text-slate-300">Status</label>
-                <Select value={formData.status} onValueChange={(v) => handleSelectChange('status', v)}>
+                <Select value={formData.status} onValueChange={(v) => v && handleSelectChange('status', v)}>
                   <SelectTrigger className="bg-slate-900 border-slate-700 text-white">
                     <SelectValue />
                   </SelectTrigger>

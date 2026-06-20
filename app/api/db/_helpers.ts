@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getAuthenticatedUser, getSupabaseAdmin } from '@/lib/supabase-admin';
+import { getActiveProfile, getAuthenticatedUser, getSupabaseAdmin, isAdminProfile } from '@/lib/supabase-admin';
 
 const allowedTables = new Set([
   'customers',
@@ -37,7 +37,12 @@ export async function getAuthedContext(request: Request) {
     return { response: NextResponse.json({ error }, { status: 401 }) };
   }
 
-  return { user, supabase: getSupabaseAdmin() };
+  const { profile, error: profileError } = await getActiveProfile(user.id);
+  if (profileError || !profile) {
+    return { response: NextResponse.json({ error: profileError }, { status: 403 }) };
+  }
+
+  return { user, profile, isAdmin: isAdminProfile(profile), supabase: getSupabaseAdmin() };
 }
 
 export function applyListFilters(query: any, table: string, searchParams: URLSearchParams) {

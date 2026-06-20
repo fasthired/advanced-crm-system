@@ -131,14 +131,16 @@ export default function TasksPage() {
               Complete
             </Button>
           )}
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={() => handleDelete(task.id)}
-            className="text-red-400 hover:text-red-300"
-          >
-            <Trash2 className="w-4 h-4" />
-          </Button>
+          {user?.role === 'admin' && (
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => handleDelete(task.id)}
+              className="text-red-400 hover:text-red-300"
+            >
+              <Trash2 className="w-4 h-4" />
+            </Button>
+          )}
         </div>
         {task.due_date && (
           <p className="text-xs text-slate-500">

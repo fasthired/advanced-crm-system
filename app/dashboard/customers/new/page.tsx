@@ -221,7 +221,7 @@ export default function NewCustomerPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-slate-300">Status</label>
-                  <Select value={formData.status} onValueChange={(value) => handleSelectChange('status', value)}>
+                  <Select value={formData.status} onValueChange={(value) => value && handleSelectChange('status', value)}>
                     <SelectTrigger className="bg-slate-900 border-slate-700 text-white">
                       <SelectValue />
                     </SelectTrigger>
@@ -237,7 +237,7 @@ export default function NewCustomerPage() {
 
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-slate-300">Source</label>
-                  <Select value={formData.source} onValueChange={(value) => handleSelectChange('source', value)}>
+                  <Select value={formData.source} onValueChange={(value) => value && handleSelectChange('source', value)}>
                     <SelectTrigger className="bg-slate-900 border-slate-700 text-white">
                       <SelectValue />
                     </SelectTrigger>

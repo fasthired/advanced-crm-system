@@ -5,14 +5,14 @@ type RouteContext = {
   params: Promise<{ table: string; id: string }>;
 };
 
-async function getOwnedRecord(supabase: any, table: string, id: string, userId: string) {
+async function getOwnedRecord(supabase: any, table: string, id: string, userId: string, isAdmin: boolean) {
   const { data, error } = await supabase.from(table).select('*').eq('id', id).single();
 
   if (error || !data) {
     return { response: NextResponse.json({ error: error?.message || 'Not found' }, { status: 404 }) };
   }
 
-  if (data.user_id !== userId) {
+  if (data.user_id !== userId && !isAdmin) {
     return { response: NextResponse.json({ error: 'Forbidden' }, { status: 403 }) };
   }
 
@@ -27,7 +27,7 @@ export async function GET(request: Request, context: RouteContext) {
   const authed = await getAuthedContext(request);
   if ('response' in authed) return authed.response;
 
-  const owned = await getOwnedRecord(authed.supabase, table, id, authed.user.id);
+  const owned = await getOwnedRecord(authed.supabase, table, id, authed.user.id, authed.isAdmin);
   if ('response' in owned) return owned.response;
 
   return NextResponse.json({ data: owned.data });
@@ -41,11 +41,11 @@ export async function PATCH(request: Request, context: RouteContext) {
   const authed = await getAuthedContext(request);
   if ('response' in authed) return authed.response;
 
-  const owned = await getOwnedRecord(authed.supabase, table, id, authed.user.id);
+  const owned = await getOwnedRecord(authed.supabase, table, id, authed.user.id, authed.isAdmin);
   if ('response' in owned) return owned.response;
 
   const payload = await request.json();
-  if (!ownsPayload(payload, authed.user.id)) {
+  if (!authed.isAdmin && !ownsPayload(payload, authed.user.id)) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
@@ -66,8 +66,15 @@ export async function DELETE(request: Request, context: RouteContext) {
   const authed = await getAuthedContext(request);
   if ('response' in authed) return authed.response;
 
-  const owned = await getOwnedRecord(authed.supabase, table, id, authed.user.id);
+  const owned = await getOwnedRecord(authed.supabase, table, id, authed.user.id, authed.isAdmin);
   if ('response' in owned) return owned.response;
+
+  if (!authed.isAdmin) {
+    return NextResponse.json(
+      { error: 'Records cannot be permanently deleted. Contact the administrator if a record needs review.' },
+      { status: 403 }
+    );
+  }
 
   const { error } = await authed.supabase.from(table).delete().eq('id', id);
 

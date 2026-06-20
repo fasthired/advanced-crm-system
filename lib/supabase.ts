@@ -20,6 +20,14 @@ export type Database = {
           avatar_url: string | null;
           phone: string | null;
           role: 'user' | 'admin';
+          account_status: 'active' | 'disabled' | 'banned' | 'removed';
+          status_reason: string | null;
+          status_updated_at: string | null;
+          status_updated_by: string | null;
+          disabled_at: string | null;
+          banned_at: string | null;
+          removed_at: string | null;
+          last_seen_at: string | null;
           timezone: string;
           preferences: Record<string, any>;
           created_at: string;

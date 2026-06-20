@@ -125,7 +125,7 @@ export default function CallsPage() {
 
       <Card className="bg-slate-800/50 border-slate-700">
         <CardContent className="p-4">
-          <Select value={filterType} onValueChange={setFilterType}>
+            <Select value={filterType} onValueChange={(value) => value && setFilterType(value)}>
             <SelectTrigger className="w-full md:w-40 bg-slate-900 border-slate-700 text-white">
               <SelectValue placeholder="Filter by type" />
             </SelectTrigger>
@@ -179,9 +179,11 @@ export default function CallsPage() {
                       </td>
                       <td className="py-3 px-4 text-slate-400 text-sm">{new Date(call.created_at).toLocaleString()}</td>
                       <td className="py-3 px-4">
-                        <Button variant="ghost" size="icon" onClick={() => handleDelete(call.id)} className="text-red-400">
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
+                        {user?.role === 'admin' && (
+                          <Button variant="ghost" size="icon" onClick={() => handleDelete(call.id)} className="text-red-400">
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        )}
                       </td>
                     </tr>
                   ))}

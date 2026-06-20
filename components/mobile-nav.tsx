@@ -3,6 +3,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useAuth } from '@/lib/auth-context';
 import {
   LayoutDashboard,
   Users,
@@ -10,6 +11,7 @@ import {
   CheckCircle2,
   ClipboardList,
   BarChart3,
+  ShieldCheck,
 } from 'lucide-react';
 
 const mobileItems = [
@@ -23,10 +25,18 @@ const mobileItems = [
 
 export default function MobileNav() {
   const pathname = usePathname();
+  const { user } = useAuth();
+  const visibleItems = user?.role === 'admin'
+    ? [
+        mobileItems[0],
+        { icon: ShieldCheck, label: 'Admin', href: '/dashboard/admin' },
+        ...mobileItems.slice(1, 4),
+      ]
+    : mobileItems.slice(0, 5);
 
   return (
     <div className="flex justify-around h-16 items-center">
-      {mobileItems.map((item) => {
+      {visibleItems.map((item) => {
         const Icon = item.icon;
         const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
 

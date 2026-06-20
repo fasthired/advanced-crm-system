@@ -141,8 +141,8 @@ export default function NewCallPage() {
 
             <div className="space-y-2">
               <label className="text-sm font-medium text-slate-300">Customer *</label>
-              <Select value={formData.customer_id} onValueChange={(value) => handleSelectChange('customer_id', value)}>
-                <SelectTrigger className="bg-slate-900 border-slate-700 text-white" required>
+              <Select value={formData.customer_id} onValueChange={(value) => value && handleSelectChange('customer_id', value)}>
+                <SelectTrigger className="bg-slate-900 border-slate-700 text-white">
                   <SelectValue placeholder="Select customer" />
                 </SelectTrigger>
                 <SelectContent className="bg-slate-800 border-slate-700">
@@ -158,7 +158,7 @@ export default function NewCallPage() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="space-y-2">
                 <label className="text-sm font-medium text-slate-300">Call Type *</label>
-                <Select value={formData.call_type} onValueChange={(value) => handleSelectChange('call_type', value)}>
+                <Select value={formData.call_type} onValueChange={(value) => value && handleSelectChange('call_type', value)}>
                   <SelectTrigger className="bg-slate-900 border-slate-700 text-white">
                     <SelectValue />
                   </SelectTrigger>
@@ -185,7 +185,7 @@ export default function NewCallPage() {
 
               <div className="space-y-2">
                 <label className="text-sm font-medium text-slate-300">Outcome *</label>
-                <Select value={formData.outcome} onValueChange={(value) => handleSelectChange('outcome', value)}>
+                <Select value={formData.outcome} onValueChange={(value) => value && handleSelectChange('outcome', value)}>
                   <SelectTrigger className="bg-slate-900 border-slate-700 text-white">
                     <SelectValue />
                   </SelectTrigger>

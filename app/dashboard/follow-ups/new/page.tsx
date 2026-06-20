@@ -101,7 +101,7 @@ export default function NewFollowUpPage() {
 
             <div className="space-y-2">
               <label className="text-sm font-medium text-slate-300">Customer *</label>
-              <Select value={formData.customer_id} onValueChange={(v) => handleSelectChange('customer_id', v)}>
+              <Select value={formData.customer_id} onValueChange={(v) => v && handleSelectChange('customer_id', v)}>
                 <SelectTrigger className="bg-slate-900 border-slate-700 text-white">
                   <SelectValue placeholder="Select customer" />
                 </SelectTrigger>
@@ -118,7 +118,7 @@ export default function NewFollowUpPage() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="space-y-2">
                 <label className="text-sm font-medium text-slate-300">Type</label>
-                <Select value={formData.follow_up_type} onValueChange={(v) => handleSelectChange('follow_up_type', v)}>
+                <Select value={formData.follow_up_type} onValueChange={(v) => v && handleSelectChange('follow_up_type', v)}>
                   <SelectTrigger className="bg-slate-900 border-slate-700 text-white">
                     <SelectValue />
                   </SelectTrigger>
@@ -133,7 +133,7 @@ export default function NewFollowUpPage() {
 
               <div className="space-y-2">
                 <label className="text-sm font-medium text-slate-300">Priority</label>
-                <Select value={formData.priority} onValueChange={(v) => handleSelectChange('priority', v)}>
+                <Select value={formData.priority} onValueChange={(v) => v && handleSelectChange('priority', v)}>
                   <SelectTrigger className="bg-slate-900 border-slate-700 text-white">
                     <SelectValue />
                   </SelectTrigger>

@@ -35,3 +35,43 @@ export async function getAuthenticatedUser(request: Request) {
 
   return { user: data.user, error: null };
 }
+
+export type AccountStatus = 'active' | 'disabled' | 'banned' | 'removed';
+
+export type AppProfile = {
+  id: string;
+  email: string;
+  full_name: string | null;
+  role: 'user' | 'admin';
+  account_status: AccountStatus;
+  status_reason: string | null;
+};
+
+export function isAdminProfile(profile: AppProfile | null | undefined) {
+  return profile?.role === 'admin';
+}
+
+export async function getActiveProfile(userId: string) {
+  const supabase = getSupabaseAdmin();
+  const { data, error } = await supabase
+    .from('users')
+    .select('id, email, full_name, role, account_status, status_reason')
+    .eq('id', userId)
+    .single();
+
+  if (error || !data) {
+    return { profile: null, error: error?.message || 'Account profile was not found' };
+  }
+
+  const profile = data as AppProfile;
+  if (profile.account_status !== 'active') {
+    return {
+      profile,
+      error: `This account is ${profile.account_status}. Please contact the administrator.`,
+    };
+  }
+
+  await supabase.from('users').update({ last_seen_at: new Date().toISOString() }).eq('id', userId);
+
+  return { profile, error: null };
+}

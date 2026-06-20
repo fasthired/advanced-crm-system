@@ -9,6 +9,8 @@ type User = {
   email: string;
   full_name: string | null;
   role: 'user' | 'admin';
+  account_status: 'active' | 'disabled' | 'banned' | 'removed';
+  status_reason: string | null;
 };
 
 type AuthContextType = {
@@ -29,7 +31,10 @@ const fetchProfile = async (accessToken: string) => {
     },
   });
 
-  if (!response.ok) return null;
+  if (!response.ok) {
+    const result = await response.json().catch(() => null);
+    throw new Error(result?.error || 'Unable to load account profile');
+  }
 
   const result = await response.json();
   return result.data as User;
@@ -52,10 +57,17 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         setSession(currentSession);
 
         if (currentSession?.user) {
-          const userData = await fetchProfile(currentSession.access_token);
+          try {
+            const userData = await fetchProfile(currentSession.access_token);
 
-          if (userData) {
-            setUser(userData);
+            if (userData) {
+              setUser(userData);
+            }
+          } catch (profileError) {
+            console.error('Profile loading error:', profileError);
+            await supabase.auth.signOut();
+            setSession(null);
+            setUser(null);
           }
         }
       } catch (error) {
@@ -68,14 +80,20 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     initializeAuth();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
+      async (_event: string, session: Session | null) => {
         setSession(session);
 
         if (session?.user) {
-          const userData = await fetchProfile(session.access_token);
+          try {
+            const userData = await fetchProfile(session.access_token);
 
-          if (userData) {
-            setUser(userData);
+            if (userData) {
+              setUser(userData);
+            }
+          } catch (profileError) {
+            console.error('Profile loading error:', profileError);
+            await supabase.auth.signOut();
+            setUser(null);
           }
         } else {
           setUser(null);
@@ -112,12 +130,24 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     if (!isSupabaseConfigured) {
       throw new Error('Supabase is not configured. Please set environment variables.');
     }
-    const { error } = await supabase.auth.signInWithPassword({
+    const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
 
     if (error) throw error;
+    if (!data.session) throw new Error('Sign in failed');
+
+    try {
+      const userData = await fetchProfile(data.session.access_token);
+      setSession(data.session);
+      setUser(userData);
+    } catch (profileError) {
+      await supabase.auth.signOut();
+      setSession(null);
+      setUser(null);
+      throw profileError;
+    }
   };
 
   const signOut = async () => {

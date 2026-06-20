@@ -14,6 +14,7 @@ import {
   BarChart3,
   LogOut,
   Settings,
+  ShieldCheck,
 } from 'lucide-react';
 
 const menuItems = [
@@ -29,7 +30,14 @@ const menuItems = [
 export default function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
-  const { signOut } = useAuth();
+  const { signOut, user } = useAuth();
+  const visibleMenuItems = user?.role === 'admin'
+    ? [
+        ...menuItems.slice(0, 1),
+        { icon: ShieldCheck, label: 'Admin', href: '/dashboard/admin' },
+        ...menuItems.slice(1),
+      ]
+    : menuItems;
 
   const handleLogout = async () => {
     await signOut();
@@ -44,7 +52,7 @@ export default function Sidebar() {
       </div>
 
       <nav className="flex-1 overflow-y-auto p-4 space-y-2">
-        {menuItems.map((item) => {
+        {visibleMenuItems.map((item) => {
           const Icon = item.icon;
           const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
 

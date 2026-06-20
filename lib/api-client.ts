@@ -90,7 +90,7 @@ export const customerApi = {
     return tableApi.get<Customer>('customers', id);
   },
 
-  create(customer: Database['public']['Tables']['customers']['Insert']) {
+  create(customer: Record<string, any>) {
     return tableApi.create<Customer>('customers', customer);
   },
 
@@ -120,7 +120,7 @@ export const callApi = {
     return tableApi.list<Call>('calls', { customerId });
   },
 
-  create(call: Database['public']['Tables']['calls']['Insert']) {
+  create(call: Record<string, any>) {
     return tableApi.create<Call>('calls', call);
   },
 
@@ -150,7 +150,7 @@ export const followUpApi = {
     });
   },
 
-  create(followUp: Database['public']['Tables']['follow_ups']['Insert']) {
+  create(followUp: Record<string, any>) {
     return tableApi.create<FollowUp>('follow_ups', followUp);
   },
 
@@ -180,7 +180,7 @@ export const reminderApi = {
     return tableApi.list<Reminder>('reminders', { userId, upcoming: true });
   },
 
-  create(reminder: Database['public']['Tables']['reminders']['Insert']) {
+  create(reminder: Record<string, any>) {
     return tableApi.create<Reminder>('reminders', reminder);
   },
 
@@ -209,7 +209,7 @@ export const taskApi = {
     return tableApi.list<Task>('tasks', { userId, status });
   },
 
-  create(task: Database['public']['Tables']['tasks']['Insert']) {
+  create(task: Record<string, any>) {
     return tableApi.create<Task>('tasks', task);
   },
 
@@ -231,7 +231,7 @@ export const notificationApi = {
     return tableApi.list<Notification>('notifications', { userId, unread: true });
   },
 
-  create(notification: Database['public']['Tables']['notifications']['Insert']) {
+  create(notification: Record<string, any>) {
     return tableApi.create<Notification>('notifications', notification);
   },
 
@@ -257,7 +257,32 @@ export const activityApi = {
     return tableApi.list<Activity>('activities', { userId });
   },
 
-  log(activity: Database['public']['Tables']['activities']['Insert']) {
+  log(activity: Record<string, any>) {
     return tableApi.create<Activity>('activities', activity);
+  },
+};
+
+export type AdminUserAction = 'activate' | 'disable' | 'ban' | 'remove';
+
+export const adminApi = {
+  getUsers() {
+    return apiRequest<{
+      users: Array<Database['public']['Tables']['users']['Row'] & {
+        stats: {
+          total_records: number;
+          records_today: number;
+          activities_today: number;
+          tasks_completed_today: number;
+        };
+      }>;
+      activities_today: any[];
+    }>('/api/admin/users');
+  },
+
+  updateUser(userId: string, action: AdminUserAction, reason?: string) {
+    return apiRequest<Database['public']['Tables']['users']['Row']>('/api/admin/users', {
+      method: 'PATCH',
+      body: JSON.stringify({ userId, action, reason }),
+    });
   },
 };

@@ -111,14 +111,16 @@ export default function NotificationsPage() {
             Mark read
           </Button>
         )}
-        <Button
-          size="icon"
-          variant="ghost"
-          onClick={() => handleDelete(notification.id)}
-          className="text-red-400 hover:text-red-300"
-        >
-          <Trash2 className="w-4 h-4" />
-        </Button>
+        {user?.role === 'admin' && (
+          <Button
+            size="icon"
+            variant="ghost"
+            onClick={() => handleDelete(notification.id)}
+            className="text-red-400 hover:text-red-300"
+          >
+            <Trash2 className="w-4 h-4" />
+          </Button>
+        )}
       </div>
     </div>
   );

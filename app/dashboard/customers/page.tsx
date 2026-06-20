@@ -142,7 +142,7 @@ export default function CustomersPage() {
                 className="pl-10 bg-slate-900 border-slate-700 text-white"
               />
             </div>
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <Select value={statusFilter} onValueChange={(value) => value && setStatusFilter(value)}>
               <SelectTrigger className="w-full md:w-40 bg-slate-900 border-slate-700 text-white">
                 <SelectValue placeholder="Filter by status" />
               </SelectTrigger>
@@ -218,15 +218,17 @@ export default function CustomersPage() {
                             <Edit2 className="w-4 h-4" />
                           </Button>
                         </Link>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleDelete(customer.id)}
-                          disabled={deleting === customer.id}
-                          className="text-red-400 hover:text-red-300"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
+                        {user?.role === 'admin' && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleDelete(customer.id)}
+                            disabled={deleting === customer.id}
+                            className="text-red-400 hover:text-red-300"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        )}
                       </td>
                     </tr>
                   ))}
