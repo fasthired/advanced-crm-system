@@ -150,6 +150,10 @@ export const followUpApi = {
     });
   },
 
+  getByCustomer(customerId: string) {
+    return tableApi.list<FollowUp>('follow_ups', { customerId, select: '*, customers(name, email)' });
+  },
+
   create(followUp: Record<string, any>) {
     return tableApi.create<FollowUp>('follow_ups', followUp);
   },
@@ -207,6 +211,10 @@ export const taskApi = {
 
   getByStatus(userId: string, status: string) {
     return tableApi.list<Task>('tasks', { userId, status });
+  },
+
+  getByCustomer(customerId: string) {
+    return tableApi.list<Task>('tasks', { customerId });
   },
 
   create(task: Record<string, any>) {

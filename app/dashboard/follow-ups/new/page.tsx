@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import React, { useEffect, useState, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/lib/auth-context';
 import { followUpApi, customerApi, activityApi } from '@/lib/api-client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -12,12 +12,15 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { ArrowLeft, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 
-export default function NewFollowUpPage() {
+function NewFollowUpForm() {
   const router = useRouter();
   const { user } = useAuth();
+  const searchParams = useSearchParams();
+  const initialCustomerId = searchParams.get('customerId') || '';
+
   const [customers, setCustomers] = useState<any[]>([]);
   const [formData, setFormData] = useState({
-    customer_id: '',
+    customer_id: initialCustomerId,
     follow_up_type: 'call',
     priority: 'medium',
     description: '',
@@ -31,6 +34,10 @@ export default function NewFollowUpPage() {
     if (user?.id) {
       customerApi.getAll(user.id).then((data) => {
         setCustomers(data || []);
+        // If customerId param matches a customer, make sure it is selected
+        if (initialCustomerId && data && data.some((c: any) => c.id === initialCustomerId)) {
+          setFormData(prev => ({ ...prev, customer_id: initialCustomerId }));
+        }
         setCustomerLoading(false);
       });
     }
@@ -182,5 +189,13 @@ export default function NewFollowUpPage() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+export default function NewFollowUpPage() {
+  return (
+    <Suspense fallback={<div className="p-6 bg-slate-900 min-h-screen text-white">Loading form...</div>}>
+      <NewFollowUpForm />
+    </Suspense>
   );
 }

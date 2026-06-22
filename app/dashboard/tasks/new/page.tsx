@@ -1,9 +1,9 @@
 'use client';
 
-import React, { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import React, { useEffect, useState, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/lib/auth-context';
-import { taskApi, activityApi } from '@/lib/api-client';
+import { taskApi, customerApi, activityApi } from '@/lib/api-client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,18 +12,40 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { ArrowLeft, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 
-export default function NewTaskPage() {
+function NewTaskForm() {
   const router = useRouter();
   const { user } = useAuth();
+  const searchParams = useSearchParams();
+  const initialCustomerId = searchParams.get('customerId') || '';
+
+  const [customers, setCustomers] = useState<any[]>([]);
   const [formData, setFormData] = useState({
     title: '',
     description: '',
     priority: 'medium',
     status: 'todo',
     due_date: '',
+    customer_id: initialCustomerId,
   });
   const [loading, setLoading] = useState(false);
+  const [customerLoading, setCustomerLoading] = useState(true);
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (user?.id) {
+      customerApi.getAll(user.id)
+        .then((data) => {
+          setCustomers(data || []);
+          if (initialCustomerId && data && data.some((c: any) => c.id === initialCustomerId)) {
+            setFormData((prev) => ({ ...prev, customer_id: initialCustomerId }));
+          }
+        })
+        .catch((err) => console.error('Error fetching customers for task:', err))
+        .finally(() => setCustomerLoading(false));
+    } else {
+      setCustomerLoading(false);
+    }
+  }, [user?.id]);
 
   const handleChange = (e: any) => {
     setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
@@ -39,6 +61,10 @@ export default function NewTaskPage() {
 
     setLoading(true);
     try {
+      const targetCustomerId = (formData.customer_id && formData.customer_id !== '_none_') ? formData.customer_id : null;
+      const selectedCustomer = customers.find((c) => c.id === targetCustomerId);
+      const customerName = selectedCustomer ? selectedCustomer.name : '';
+
       const task = await taskApi.create({
         user_id: user.id,
         title: formData.title,
@@ -46,6 +72,7 @@ export default function NewTaskPage() {
         priority: formData.priority as any,
         status: formData.status as any,
         due_date: formData.due_date ? formData.due_date : null,
+        customer_id: targetCustomerId,
       });
 
       await activityApi.log({
@@ -53,20 +80,28 @@ export default function NewTaskPage() {
         activity_type: 'task_created',
         entity_type: 'task',
         entity_id: task.id,
-        description: `Task created: ${task.title}`,
+        description: `Task created: ${task.title}${customerName ? ` for ${customerName}` : ''}`,
       });
 
-      router.push('/dashboard/tasks');
+      if (targetCustomerId) {
+        router.push(`/dashboard/customers/${targetCustomerId}`);
+      } else {
+        router.push('/dashboard/tasks');
+      }
     } catch (err: any) {
-      setError(err.message);
+      setError(err.message || 'Failed to create task');
     } finally {
       setLoading(false);
     }
   };
 
+  if (customerLoading) {
+    return <div className="p-6 bg-slate-900 text-white min-h-screen">Loading customer records...</div>;
+  }
+
   return (
     <div className="p-6 space-y-6 bg-slate-900 min-h-screen">
-      <Link href="/dashboard/tasks">
+      <Link href={formData.customer_id ? `/dashboard/customers/${formData.customer_id}` : '/dashboard/tasks'}>
         <Button variant="ghost" className="gap-2 text-slate-300">
           <ArrowLeft className="w-4 h-4" />
           Back
@@ -75,7 +110,7 @@ export default function NewTaskPage() {
 
       <div>
         <h1 className="text-3xl font-bold text-white">Create Task</h1>
-        <p className="text-slate-400 mt-1">Add a new task to your to-do list</p>
+        <p className="text-slate-400 mt-1">Add a new task to your pipeline list</p>
       </div>
 
       <Card className="bg-slate-800/50 border-slate-700 max-w-2xl">
@@ -97,6 +132,27 @@ export default function NewTaskPage() {
                 disabled={loading}
                 className="bg-slate-900 border-slate-700 text-white"
               />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-slate-300">Associate Customer (Optional)</label>
+              <Select 
+                value={formData.customer_id} 
+                onValueChange={(v) => handleSelectChange('customer_id', v)}
+                disabled={loading}
+              >
+                <SelectTrigger className="bg-slate-900 border-slate-700 text-white">
+                  <SelectValue placeholder="Select customer (optional)" />
+                </SelectTrigger>
+                <SelectContent className="bg-slate-800 border-slate-700">
+                  <SelectItem value="_none_">None</SelectItem>
+                  {customers.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>
+                      {c.name} {c.company ? `(${c.company})` : ''}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -164,5 +220,13 @@ export default function NewTaskPage() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+export default function NewTaskPage() {
+  return (
+    <Suspense fallback={<div className="p-6 bg-slate-900 min-h-screen text-white">Loading form...</div>}>
+      <NewTaskForm />
+    </Suspense>
   );
 }

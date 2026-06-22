@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import React, { useEffect, useState, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/lib/auth-context';
 import { callApi, customerApi, activityApi } from '@/lib/api-client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -12,12 +12,15 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { ArrowLeft, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 
-export default function NewCallPage() {
+function NewCallForm() {
   const router = useRouter();
   const { user } = useAuth();
+  const searchParams = useSearchParams();
+  const initialCustomerId = searchParams.get('customerId') || '';
+  
   const [customers, setCustomers] = useState<any[]>([]);
   const [formData, setFormData] = useState({
-    customer_id: '',
+    customer_id: initialCustomerId,
     call_type: 'outbound',
     duration_minutes: '',
     outcome: 'completed',
@@ -38,6 +41,10 @@ export default function NewCallPage() {
     try {
       const data = await customerApi.getAll(user.id);
       setCustomers(data || []);
+      // If customerId param matches a customer, make sure it is selected
+      if (initialCustomerId && data && data.some((c: any) => c.id === initialCustomerId)) {
+        setFormData(prev => ({ ...prev, customer_id: initialCustomerId }));
+      }
     } catch (error) {
       console.error('Error fetching customers:', error);
     } finally {
@@ -233,5 +240,13 @@ export default function NewCallPage() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+export default function NewCallPage() {
+  return (
+    <Suspense fallback={<div className="p-6 bg-slate-900 min-h-screen text-white">Loading form...</div>}>
+      <NewCallForm />
+    </Suspense>
   );
 }

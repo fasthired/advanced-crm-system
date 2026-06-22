@@ -13,14 +13,26 @@ import { Plus, Search, Edit2, Trash2, Download, FileJson, Eye } from 'lucide-rea
 import Link from 'next/link';
 import { stringify } from 'csv-stringify/sync';
 
-export default function CustomersPage() {
+import { useSearchParams } from 'next/navigation';
+
+function CustomersList() {
   const { user } = useAuth();
+  const searchParams = useSearchParams();
+  const initialStatus = searchParams.get('status') || 'all';
+  
   const [customers, setCustomers] = useState<any[]>([]);
   const [filteredCustomers, setFilteredCustomers] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [statusFilter, setStatusFilter] = useState<string>(initialStatus);
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState<string | null>(null);
+
+  useEffect(() => {
+    const status = searchParams.get('status');
+    if (status) {
+      setStatusFilter(status);
+    }
+  }, [searchParams]);
 
   const statusColors: Record<string, string> = {
     lead: 'bg-yellow-500/10 text-yellow-400',
@@ -206,7 +218,7 @@ export default function CustomersPage() {
                           {customer.status}
                         </Badge>
                       </td>
-                      <td className="py-3 px-4 text-slate-300">${customer.value.toFixed(2)}</td>
+                      <td className="py-3 px-4 text-slate-300">¢{customer.value.toFixed(2)}</td>
                       <td className="py-3 px-4 flex gap-2">
                         <Link href={`/dashboard/customers/${customer.id}`}>
                           <Button variant="ghost" size="icon" className="text-blue-400 hover:text-blue-300">
@@ -239,5 +251,13 @@ export default function CustomersPage() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+export default function CustomersPage() {
+  return (
+    <Suspense fallback={<div className="p-6 bg-slate-900 min-h-screen text-white">Loading customers...</div>}>
+      <CustomersList />
+    </Suspense>
   );
 }
