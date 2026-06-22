@@ -163,6 +163,7 @@ export default function CallsPage() {
                     <th className="text-left py-3 px-4 text-slate-300 font-medium">Duration</th>
                     <th className="text-left py-3 px-4 text-slate-300 font-medium">Outcome</th>
                     <th className="text-left py-3 px-4 text-slate-300 font-medium">Date</th>
+                    <th className="text-left py-3 px-4 text-slate-300 font-medium">Recording</th>
                     <th className="text-left py-3 px-4 text-slate-300 font-medium">Actions</th>
                   </tr>
                 </thead>
@@ -178,6 +179,13 @@ export default function CallsPage() {
                         <Badge className={`${outcomeColors[call.outcome]} border-0 capitalize`}>{call.outcome.replace('_', ' ')}</Badge>
                       </td>
                       <td className="py-3 px-4 text-slate-400 text-sm">{new Date(call.created_at).toLocaleString()}</td>
+                      <td className="py-3 px-4">
+                        {call.recording_url ? (
+                          <audio src={call.recording_url} controls className="w-44 h-8 accent-blue-500" />
+                        ) : (
+                          <span className="text-xs text-slate-500 italic">No recording</span>
+                        )}
+                      </td>
                       <td className="py-3 px-4">
                         {user?.role === 'admin' && (
                           <Button variant="ghost" size="icon" onClick={() => handleDelete(call.id)} className="text-red-400">

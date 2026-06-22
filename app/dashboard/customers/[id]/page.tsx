@@ -429,12 +429,13 @@ export default function CustomerDetailPage() {
                             <Clock className="w-3.5 h-3.5" />
                             Duration: {call.duration_minutes} min
                           </span>
-                          {call.recording_url && (
-                            <a href={call.recording_url} target="_blank" rel="noreferrer" className="text-blue-400 hover:underline">
-                              Listen Recording
-                            </a>
-                          )}
                         </div>
+                        {call.recording_url && (
+                          <div className="mt-2 pt-2 border-t border-slate-700/30 flex flex-col gap-1">
+                            <span className="text-[10px] uppercase font-semibold text-slate-500 tracking-wider">Call Recording Playback</span>
+                            <audio src={call.recording_url} controls className="w-full h-8 max-w-md accent-blue-500" />
+                          </div>
+                        )}
                       </CardContent>
                     </Card>
                   ))}

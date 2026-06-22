@@ -11,6 +11,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ArrowLeft, Loader2 } from 'lucide-react';
 import Link from 'next/link';
+import { supabase } from '@/lib/supabase';
 
 function NewCallForm() {
   const router = useRouter();
@@ -26,7 +27,9 @@ function NewCallForm() {
     outcome: 'completed',
     notes: '',
   });
+  const [recordingFile, setRecordingFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const [customerLoading, setCustomerLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -67,8 +70,32 @@ function NewCallForm() {
 
     setError('');
     setLoading(true);
+    setUploading(false);
 
     try {
+      let recordingUrl = null;
+      if (recordingFile) {
+        setUploading(true);
+        const fileExt = recordingFile.name.split('.').pop();
+        const fileName = `${Date.now()}_${Math.random().toString(36).substring(2, 15)}.${fileExt}`;
+        const filePath = `recordings/${user.id}/${fileName}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from('call-recordings')
+          .upload(filePath, recordingFile);
+
+        if (uploadError) {
+          throw uploadError;
+        }
+
+        const { data: { publicUrl } } = supabase.storage
+          .from('call-recordings')
+          .getPublicUrl(filePath);
+
+        recordingUrl = publicUrl;
+        setUploading(false);
+      }
+
       const call = await callApi.create({
         user_id: user.id,
         customer_id: formData.customer_id,
@@ -76,6 +103,7 @@ function NewCallForm() {
         duration_minutes: parseInt(formData.duration_minutes) || 0,
         outcome: formData.outcome as any,
         notes: formData.notes || null,
+        recording_url: recordingUrl,
       });
 
       // Update customer last contact date
@@ -96,6 +124,7 @@ function NewCallForm() {
       setError(err.message || 'Failed to log call');
     } finally {
       setLoading(false);
+      setUploading(false);
     }
   };
 
@@ -213,15 +242,36 @@ function NewCallForm() {
                 value={formData.notes}
                 onChange={handleChange}
                 placeholder="Call summary, action items, next steps..."
-                disabled={loading}
+                disabled={loading || uploading}
                 className="bg-slate-900 border-slate-700 text-white"
                 rows={5}
               />
             </div>
 
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-slate-300">Voice Recording File (Optional)</label>
+              <Input
+                type="file"
+                accept="audio/*"
+                onChange={(e) => {
+                  if (e.target.files && e.target.files[0]) {
+                    setRecordingFile(e.target.files[0]);
+                  }
+                }}
+                disabled={loading || uploading}
+                className="bg-slate-900 border-slate-700 text-white"
+              />
+              <p className="text-xs text-slate-500">Upload MP3, OGG, WAV, M4A, or other common phone audio formats (Max 50MB).</p>
+            </div>
+
             <div className="flex gap-3 pt-4">
-              <Button type="submit" disabled={loading} className="gap-2 bg-green-600 hover:bg-green-700">
-                {loading ? (
+              <Button type="submit" disabled={loading || uploading} className="gap-2 bg-green-600 hover:bg-green-700">
+                {uploading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Uploading Audio...
+                  </>
+                ) : loading ? (
                   <>
                     <Loader2 className="w-4 h-4 animate-spin" />
                     Logging...
