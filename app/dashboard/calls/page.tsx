@@ -118,10 +118,12 @@ export default function CallsPage() {
           </div>
         </div>
         <div className="flex gap-2">
-          <Button onClick={exportToCSV} variant="outline" className="gap-2">
-            <Download className="w-4 h-4" />
-            Export
-          </Button>
+          {user?.role === 'admin' && (
+            <Button onClick={exportToCSV} variant="outline" className="gap-2">
+              <Download className="w-4 h-4" />
+              Export
+            </Button>
+          )}
           <Link href="/dashboard/calls/new">
             <Button className="gap-2 bg-green-600 hover:bg-green-700">
               <Plus className="w-4 h-4" />
