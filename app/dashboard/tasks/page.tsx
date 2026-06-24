@@ -2,6 +2,8 @@
 
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '@/lib/auth-context';
+import { useAdminWorker } from '@/lib/admin-worker-context';
+import AdminWorkerSelector from '@/components/admin-worker-selector';
 import { taskApi, activityApi } from '@/lib/api-client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -13,19 +15,20 @@ import { stringify } from 'csv-stringify/sync';
 
 export default function TasksPage() {
   const { user } = useAuth();
+  const { selectedWorkerId } = useAdminWorker();
   const [tasks, setTasks] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const targetUserId = user?.role === 'admin' ? (selectedWorkerId === 'all' ? '' : selectedWorkerId) : user?.id;
+
   useEffect(() => {
-    if (user?.id) {
-      fetchTasks();
-    }
-  }, [user?.id]);
+    fetchTasks();
+  }, [user?.id, selectedWorkerId]);
 
   const fetchTasks = async () => {
-    if (!user?.id) return;
+    if (user?.role !== 'admin' && !user?.id) return;
     try {
-      const data = await taskApi.getAll(user.id);
+      const data = await taskApi.getAll(targetUserId || '');
       setTasks(data || []);
     } catch (error) {
       console.error('Error fetching tasks:', error);
@@ -153,10 +156,15 @@ export default function TasksPage() {
 
   return (
     <div className="p-6 space-y-6 bg-slate-900 min-h-screen">
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold text-white">Tasks</h1>
-          <p className="text-slate-400 mt-1">Manage your to-do list and projects</p>
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 border-b border-slate-800 pb-4">
+        <div className="flex flex-col md:flex-row md:items-start md:gap-6">
+          <div>
+            <h1 className="text-3xl font-bold text-white">Tasks</h1>
+            <p className="text-slate-400 mt-1">Manage your to-do list and projects</p>
+          </div>
+          <div className="mt-2 md:mt-1">
+            <AdminWorkerSelector />
+          </div>
         </div>
         <div className="flex gap-2">
           <Button onClick={exportToCSV} variant="outline" className="gap-2">

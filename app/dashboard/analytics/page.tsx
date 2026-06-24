@@ -2,6 +2,8 @@
 
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '@/lib/auth-context';
+import { useAdminWorker } from '@/lib/admin-worker-context';
+import AdminWorkerSelector from '@/components/admin-worker-selector';
 import { customerApi, callApi, followUpApi, taskApi } from '@/lib/api-client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
@@ -9,6 +11,7 @@ import { TrendingUp } from 'lucide-react';
 
 export default function AnalyticsPage() {
   const { user } = useAuth();
+  const { selectedWorkerId } = useAdminWorker();
   const [stats, setStats] = useState({
     customersByStatus: [] as any[],
     callsLastWeek: [] as any[],
@@ -19,16 +22,19 @@ export default function AnalyticsPage() {
 
   const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
 
+  const targetUserId = user?.role === 'admin' ? (selectedWorkerId === 'all' ? '' : selectedWorkerId) : user?.id;
+
   useEffect(() => {
     const fetchAnalytics = async () => {
-      if (!user?.id) return;
+      if (user?.role !== 'admin' && !user?.id) return;
+      setLoading(true);
 
       try {
         const [customers, calls, followUps, tasks] = await Promise.all([
-          customerApi.getAll(user.id),
-          callApi.getAll(user.id),
-          followUpApi.getAll(user.id),
-          taskApi.getAll(user.id),
+          customerApi.getAll(targetUserId || ''),
+          callApi.getAll(targetUserId || ''),
+          followUpApi.getAll(targetUserId || ''),
+          taskApi.getAll(targetUserId || ''),
         ]);
 
         // Customers by status
@@ -77,7 +83,7 @@ export default function AnalyticsPage() {
     };
 
     fetchAnalytics();
-  }, [user?.id]);
+  }, [user?.id, selectedWorkerId]);
 
   if (loading) {
     return <div className="p-6 bg-slate-900 min-h-screen text-white">Loading analytics...</div>;
@@ -85,12 +91,19 @@ export default function AnalyticsPage() {
 
   return (
     <div className="p-6 space-y-6 bg-slate-900 min-h-screen">
-      <div>
-        <h1 className="text-3xl font-bold text-white flex items-center gap-2">
-          <TrendingUp className="w-8 h-8" />
-          Analytics
-        </h1>
-        <p className="text-slate-400 mt-1">Your CRM performance metrics</p>
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 border-b border-slate-800 pb-4">
+        <div className="flex flex-col md:flex-row md:items-start md:gap-6">
+          <div>
+            <h1 className="text-3xl font-bold text-white flex items-center gap-2">
+              <TrendingUp className="w-8 h-8" />
+              Analytics
+            </h1>
+            <p className="text-slate-400 mt-1">Your CRM performance metrics</p>
+          </div>
+          <div className="mt-2 md:mt-1">
+            <AdminWorkerSelector />
+          </div>
+        </div>
       </div>
 
       {/* KPI Cards */}

@@ -3,10 +3,12 @@
 import React, { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth-context';
+import { AdminWorkerProvider } from '@/lib/admin-worker-context';
 import DashboardNav from '@/components/dashboard-nav';
 import MobileNav from '@/components/mobile-nav';
 import Sidebar from '@/components/sidebar';
 import Loader from '@/components/loader';
+import TaskReminderModal from '@/components/task-reminder-modal';
 
 export default function DashboardLayout({
   children,
@@ -31,29 +33,35 @@ export default function DashboardLayout({
   }
 
   return (
-    <div className="flex h-screen bg-slate-900 overflow-hidden">
-      {/* Desktop Sidebar */}
-      <div className="hidden lg:block w-64 bg-slate-800 border-r border-slate-700 overflow-y-auto">
-        <Sidebar />
-      </div>
-
-      {/* Main Content */}
-      <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Desktop Top Nav */}
-        <div className="hidden lg:block bg-slate-800 border-b border-slate-700 h-16">
-          <DashboardNav />
+    <AdminWorkerProvider>
+      <div className="flex h-screen bg-slate-900 overflow-hidden">
+        {/* Desktop Sidebar */}
+        <div className="hidden lg:block w-64 bg-slate-800 border-r border-slate-700 overflow-y-auto">
+          <Sidebar />
         </div>
 
-        {/* Main Area */}
-        <main className="flex-1 overflow-y-auto pb-24 lg:pb-0">
-          {children}
-        </main>
+        {/* Main Content */}
+        <div className="flex-1 flex flex-col overflow-hidden">
+          {/* Desktop Top Nav */}
+          <div className="hidden lg:block bg-slate-800 border-b border-slate-700 h-16">
+            <DashboardNav />
+          </div>
 
-        {/* Mobile Bottom Nav */}
-        <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-slate-800 border-t border-slate-700 z-40">
-          <MobileNav />
+          {/* Main Area */}
+          <main className="flex-1 overflow-y-auto pb-24 lg:pb-0">
+            {children}
+          </main>
+
+          {/* Mobile Bottom Nav */}
+          <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-slate-800 border-t border-slate-700 z-40">
+            <MobileNav />
+          </div>
         </div>
+
+        {/* Global Task Reminder Popup */}
+        <TaskReminderModal />
       </div>
-    </div>
+    </AdminWorkerProvider>
   );
 }
+

@@ -2,6 +2,8 @@
 
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '@/lib/auth-context';
+import { useAdminWorker } from '@/lib/admin-worker-context';
+import AdminWorkerSelector from '@/components/admin-worker-selector';
 import { callApi, customerApi, activityApi } from '@/lib/api-client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -14,24 +16,25 @@ import { stringify } from 'csv-stringify/sync';
 
 export default function CallsPage() {
   const { user } = useAuth();
+  const { selectedWorkerId } = useAdminWorker();
   const [calls, setCalls] = useState<any[]>([]);
   const [filteredCalls, setFilteredCalls] = useState<any[]>([]);
   const [filterType, setFilterType] = useState('all');
   const [loading, setLoading] = useState(true);
   const [customers, setCustomers] = useState<any[]>([]);
 
+  const targetUserId = user?.role === 'admin' ? (selectedWorkerId === 'all' ? '' : selectedWorkerId) : user?.id;
+
   useEffect(() => {
-    if (user?.id) {
-      fetchData();
-    }
-  }, [user?.id]);
+    fetchData();
+  }, [user?.id, selectedWorkerId]);
 
   const fetchData = async () => {
-    if (!user?.id) return;
+    if (user?.role !== 'admin' && !user?.id) return;
     try {
       const [callsData, customersData] = await Promise.all([
-        callApi.getAll(user.id),
-        customerApi.getAll(user.id),
+        callApi.getAll(targetUserId || ''),
+        customerApi.getAll(targetUserId || ''),
       ]);
       setCalls(callsData || []);
       setCustomers(customersData || []);
@@ -101,13 +104,18 @@ export default function CallsPage() {
 
   return (
     <div className="p-6 space-y-6 bg-slate-900 min-h-screen">
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold text-white flex items-center gap-2">
-            <Phone className="w-8 h-8" />
-            Call Logs
-          </h1>
-          <p className="text-slate-400 mt-1">Track all customer interactions</p>
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 border-b border-slate-800 pb-4">
+        <div className="flex flex-col md:flex-row md:items-start md:gap-6">
+          <div>
+            <h1 className="text-3xl font-bold text-white flex items-center gap-2">
+              <Phone className="w-8 h-8" />
+              Call Logs
+            </h1>
+            <p className="text-slate-400 mt-1">Track all customer interactions</p>
+          </div>
+          <div className="mt-2 md:mt-2">
+            <AdminWorkerSelector />
+          </div>
         </div>
         <div className="flex gap-2">
           <Button onClick={exportToCSV} variant="outline" className="gap-2">

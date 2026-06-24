@@ -2,6 +2,8 @@
 
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '@/lib/auth-context';
+import { useAdminWorker } from '@/lib/admin-worker-context';
+import AdminWorkerSelector from '@/components/admin-worker-selector';
 import { customerApi, callApi, followUpApi, taskApi, activityApi } from '@/lib/api-client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Users, Phone, CheckCircle2, ClipboardList, TrendingUp, Clock, ArrowUpRight, Zap, Target } from 'lucide-react';
@@ -9,6 +11,7 @@ import Link from 'next/link';
 
 export default function DashboardPage() {
   const { user } = useAuth();
+  const { selectedWorkerId } = useAdminWorker();
   const [stats, setStats] = useState({
     totalCustomers: 0,
     totalLeads: 0,
@@ -22,15 +25,17 @@ export default function DashboardPage() {
 
   useEffect(() => {
     const fetchDashboardData = async () => {
-      if (!user?.id) return;
+      if (user?.role !== 'admin' && !user?.id) return;
 
       try {
+        const targetUserId = user?.role === 'admin' ? (selectedWorkerId === 'all' ? '' : selectedWorkerId) : user?.id;
+
         const [customers, calls, followUps, tasks, activities] = await Promise.all([
-          customerApi.getAll(user.id),
-          callApi.getTodayCalls(user.id),
-          followUpApi.getUpcoming(user.id),
-          taskApi.getByStatus(user.id, 'todo'),
-          activityApi.getAll(user.id),
+          customerApi.getAll(targetUserId || ''),
+          callApi.getTodayCalls(targetUserId || ''),
+          followUpApi.getUpcoming(targetUserId || ''),
+          taskApi.getByStatus(targetUserId || '', 'todo'),
+          activityApi.getAll(targetUserId || ''),
         ]);
 
         const leads = customers?.filter(c => c.status === 'lead') || [];
@@ -55,7 +60,7 @@ export default function DashboardPage() {
     };
 
     fetchDashboardData();
-  }, [user?.id]);
+  }, [user?.id, selectedWorkerId]);
 
   const StatCard = ({ icon: Icon, label, value, href, trend }: any) => (
     <Link href={href} className="group">
@@ -85,9 +90,12 @@ export default function DashboardPage() {
     <div className="flex flex-col min-h-screen bg-background">
       <div className="flex-1 p-3 md:p-6 space-y-6">
         {/* Header Section */}
-        <div className="space-y-1">
-          <h1 className="text-2xl md:text-4xl font-bold text-foreground">Dashboard</h1>
-          <p className="text-sm md:text-base text-muted-foreground">Welcome back, <span className="font-semibold text-accent">{user?.full_name || user?.email?.split('@')[0]}</span></p>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-slate-800 pb-4">
+          <div className="space-y-1">
+            <h1 className="text-2xl md:text-4xl font-bold text-foreground">Dashboard</h1>
+            <p className="text-sm md:text-base text-muted-foreground">Welcome back, <span className="font-semibold text-accent">{user?.full_name || user?.email?.split('@')[0]}</span></p>
+          </div>
+          <AdminWorkerSelector />
         </div>
 
         {/* Primary Stats - Premium Grid */}

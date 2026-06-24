@@ -3,6 +3,7 @@
 import React, { useEffect, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/lib/auth-context';
+import { useAdminWorker } from '@/lib/admin-worker-context';
 import { callApi, customerApi, activityApi } from '@/lib/api-client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -16,9 +17,11 @@ import { supabase } from '@/lib/supabase';
 function NewCallForm() {
   const router = useRouter();
   const { user } = useAuth();
+  const { selectedWorkerId, workers } = useAdminWorker();
   const searchParams = useSearchParams();
   const initialCustomerId = searchParams.get('customerId') || '';
   
+  const [assignedWorkerId, setAssignedWorkerId] = useState<string>('');
   const [customers, setCustomers] = useState<any[]>([]);
   const [formData, setFormData] = useState({
     customer_id: initialCustomerId,
@@ -35,19 +38,29 @@ function NewCallForm() {
 
   useEffect(() => {
     if (user?.id) {
+      setAssignedWorkerId(user.role === 'admin' && selectedWorkerId !== 'all' ? selectedWorkerId : user.id);
+    }
+  }, [user, selectedWorkerId]);
+
+  useEffect(() => {
+    if (assignedWorkerId) {
       fetchCustomers();
     }
-  }, [user?.id]);
+  }, [assignedWorkerId]);
 
   const fetchCustomers = async () => {
-    if (!user?.id) return;
     try {
-      const data = await customerApi.getAll(user.id);
+      const data = await customerApi.getAll(assignedWorkerId);
       setCustomers(data || []);
-      // If customerId param matches a customer, make sure it is selected
-      if (initialCustomerId && data && data.some((c: any) => c.id === initialCustomerId)) {
-        setFormData(prev => ({ ...prev, customer_id: initialCustomerId }));
-      }
+      
+      setFormData(prev => {
+        const isValid = data && data.some((c: any) => c.id === prev.customer_id);
+        if (isValid) return prev;
+        if (initialCustomerId && data && data.some((c: any) => c.id === initialCustomerId)) {
+          return { ...prev, customer_id: initialCustomerId };
+        }
+        return { ...prev, customer_id: '' };
+      });
     } catch (error) {
       console.error('Error fetching customers:', error);
     } finally {
@@ -66,7 +79,7 @@ function NewCallForm() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user?.id || !formData.customer_id) return;
+    if (!user?.id || !formData.customer_id || !assignedWorkerId) return;
 
     setError('');
     setLoading(true);
@@ -78,7 +91,7 @@ function NewCallForm() {
         setUploading(true);
         const fileExt = recordingFile.name.split('.').pop();
         const fileName = `${Date.now()}_${Math.random().toString(36).substring(2, 15)}.${fileExt}`;
-        const filePath = `recordings/${user.id}/${fileName}`;
+        const filePath = `recordings/${assignedWorkerId}/${fileName}`;
 
         const { error: uploadError } = await supabase.storage
           .from('call-recordings')
@@ -97,7 +110,7 @@ function NewCallForm() {
       }
 
       const call = await callApi.create({
-        user_id: user.id,
+        user_id: assignedWorkerId,
         customer_id: formData.customer_id,
         call_type: formData.call_type as any,
         duration_minutes: parseInt(formData.duration_minutes) || 0,
@@ -112,11 +125,11 @@ function NewCallForm() {
       });
 
       await activityApi.log({
-        user_id: user.id,
+        user_id: assignedWorkerId,
         activity_type: 'call_logged',
         entity_type: 'call',
         entity_id: call.id,
-        description: `Call logged with ${customers.find((c) => c.id === formData.customer_id)?.name}`,
+        description: `Call logged with ${customers.find((c) => c.id === formData.customer_id)?.name}${user.role === 'admin' && assignedWorkerId !== user.id ? ` (assigned by admin)` : ''}`,
       });
 
       router.push('/dashboard/calls');
@@ -174,6 +187,25 @@ function NewCallForm() {
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             {error && <div className="p-3 bg-red-900/20 border border-red-700/50 rounded text-red-300 text-sm">{error}</div>}
+
+            {user?.role === 'admin' && (
+              <div className="space-y-2 bg-slate-900/40 p-3 rounded-xl border border-slate-700/50">
+                <label className="text-sm font-medium text-slate-300">Log Call For (Worker)</label>
+                <Select value={assignedWorkerId} onValueChange={setAssignedWorkerId}>
+                  <SelectTrigger className="bg-slate-900 border-slate-700 text-white">
+                    <SelectValue placeholder="Select worker" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-slate-800 border-slate-700 text-slate-200">
+                    <SelectItem value={user.id}>Me (Admin)</SelectItem>
+                    {workers.filter(w => w.role !== 'admin').map((worker) => (
+                      <SelectItem key={worker.id} value={worker.id}>
+                        {worker.full_name || worker.email}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
 
             <div className="space-y-2">
               <label className="text-sm font-medium text-slate-300">Customer *</label>

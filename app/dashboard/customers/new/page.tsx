@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth-context';
+import { useAdminWorker } from '@/lib/admin-worker-context';
 import { customerApi, activityApi } from '@/lib/api-client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -15,6 +16,15 @@ import Link from 'next/link';
 export default function NewCustomerPage() {
   const router = useRouter();
   const { user } = useAuth();
+  const { selectedWorkerId, workers } = useAdminWorker();
+  const [assignedWorkerId, setAssignedWorkerId] = useState<string>('');
+
+  useEffect(() => {
+    if (user?.id) {
+      setAssignedWorkerId(user.role === 'admin' && selectedWorkerId !== 'all' ? selectedWorkerId : user.id);
+    }
+  }, [user, selectedWorkerId]);
+
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -43,14 +53,14 @@ export default function NewCustomerPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user?.id) return;
+    if (!user?.id || !assignedWorkerId) return;
 
     setError('');
     setLoading(true);
 
     try {
       const customer = await customerApi.create({
-        user_id: user.id,
+        user_id: assignedWorkerId,
         name: formData.name,
         email: formData.email || null,
         phone: formData.phone || null,
@@ -66,11 +76,11 @@ export default function NewCustomerPage() {
       });
 
       await activityApi.log({
-        user_id: user.id,
+        user_id: assignedWorkerId,
         activity_type: 'customer_created',
         entity_type: 'customer',
         entity_id: customer.id,
-        description: `New customer created: ${customer.name}`,
+        description: `New customer created: ${customer.name}${user.role === 'admin' && assignedWorkerId !== user.id ? ` (assigned by admin)` : ''}`,
       });
 
       router.push('/dashboard/customers');
@@ -105,6 +115,24 @@ export default function NewCustomerPage() {
               {error && <div className="p-3 bg-red-900/20 border border-red-700/50 rounded text-red-300 text-sm">{error}</div>}
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {user?.role === 'admin' && (
+                  <div className="space-y-2 col-span-1 md:col-span-2 bg-slate-900/40 p-3 rounded-xl border border-slate-700/50">
+                    <label className="text-sm font-medium text-slate-300">Assign Owner (Worker)</label>
+                    <Select value={assignedWorkerId} onValueChange={setAssignedWorkerId}>
+                      <SelectTrigger className="bg-slate-900 border-slate-700 text-white">
+                        <SelectValue placeholder="Select worker" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-slate-800 border-slate-700 text-slate-200">
+                        <SelectItem value={user.id}>Me (Admin)</SelectItem>
+                        {workers.filter(w => w.role !== 'admin').map((worker) => (
+                          <SelectItem key={worker.id} value={worker.id}>
+                            {worker.full_name || worker.email}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-slate-300">Name *</label>
                   <Input

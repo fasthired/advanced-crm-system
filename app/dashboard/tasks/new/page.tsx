@@ -3,6 +3,7 @@
 import React, { useEffect, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/lib/auth-context';
+import { useAdminWorker } from '@/lib/admin-worker-context';
 import { taskApi, customerApi, activityApi } from '@/lib/api-client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -15,9 +16,11 @@ import Link from 'next/link';
 function NewTaskForm() {
   const router = useRouter();
   const { user } = useAuth();
+  const { selectedWorkerId, workers } = useAdminWorker();
   const searchParams = useSearchParams();
   const initialCustomerId = searchParams.get('customerId') || '';
 
+  const [assignedWorkerId, setAssignedWorkerId] = useState<string>('');
   const [customers, setCustomers] = useState<any[]>([]);
   const [formData, setFormData] = useState({
     title: '',
@@ -33,19 +36,30 @@ function NewTaskForm() {
 
   useEffect(() => {
     if (user?.id) {
-      customerApi.getAll(user.id)
+      setAssignedWorkerId(user.role === 'admin' && selectedWorkerId !== 'all' ? selectedWorkerId : user.id);
+    }
+  }, [user, selectedWorkerId]);
+
+  useEffect(() => {
+    if (assignedWorkerId) {
+      setCustomerLoading(true);
+      customerApi.getAll(assignedWorkerId)
         .then((data) => {
           setCustomers(data || []);
-          if (initialCustomerId && data && data.some((c: any) => c.id === initialCustomerId)) {
-            setFormData((prev) => ({ ...prev, customer_id: initialCustomerId }));
-          }
+          
+          setFormData(prev => {
+            const isValid = data && data.some((c: any) => c.id === prev.customer_id);
+            if (isValid) return prev;
+            if (initialCustomerId && data && data.some((c: any) => c.id === initialCustomerId)) {
+              return { ...prev, customer_id: initialCustomerId };
+            }
+            return { ...prev, customer_id: '_none_' };
+          });
         })
         .catch((err) => console.error('Error fetching customers for task:', err))
         .finally(() => setCustomerLoading(false));
-    } else {
-      setCustomerLoading(false);
     }
-  }, [user?.id]);
+  }, [assignedWorkerId]);
 
   const handleChange = (e: any) => {
     setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
@@ -57,16 +71,16 @@ function NewTaskForm() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user?.id) return;
+    if (!user?.id || !assignedWorkerId) return;
 
     setLoading(true);
     try {
-      const targetCustomerId = (formData.customer_id && formData.customer_id !== '_none_') ? formData.customer_id : null;
+      const targetCustomerId = (formData.customer_id && formData.customer_id !== '_none_' && formData.customer_id !== '') ? formData.customer_id : null;
       const selectedCustomer = customers.find((c) => c.id === targetCustomerId);
       const customerName = selectedCustomer ? selectedCustomer.name : '';
 
       const task = await taskApi.create({
-        user_id: user.id,
+        user_id: assignedWorkerId,
         title: formData.title,
         description: formData.description || null,
         priority: formData.priority as any,
@@ -76,11 +90,11 @@ function NewTaskForm() {
       });
 
       await activityApi.log({
-        user_id: user.id,
+        user_id: assignedWorkerId,
         activity_type: 'task_created',
         entity_type: 'task',
         entity_id: task.id,
-        description: `Task created: ${task.title}${customerName ? ` for ${customerName}` : ''}`,
+        description: `Task created: ${task.title}${customerName ? ` for ${customerName}` : ''}${user.role === 'admin' && assignedWorkerId !== user.id ? ` (assigned by admin)` : ''}`,
       });
 
       if (targetCustomerId) {
@@ -120,6 +134,25 @@ function NewTaskForm() {
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             {error && <div className="p-3 bg-red-900/20 text-red-300 rounded text-sm">{error}</div>}
+
+            {user?.role === 'admin' && (
+              <div className="space-y-2 bg-slate-900/40 p-3 rounded-xl border border-slate-700/50">
+                <label className="text-sm font-medium text-slate-300">Create Task For (Worker)</label>
+                <Select value={assignedWorkerId} onValueChange={setAssignedWorkerId}>
+                  <SelectTrigger className="bg-slate-900 border-slate-700 text-white">
+                    <SelectValue placeholder="Select worker" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-slate-800 border-slate-700 text-slate-200">
+                    <SelectItem value={user.id}>Me (Admin)</SelectItem>
+                    {workers.filter(w => w.role !== 'admin').map((worker) => (
+                      <SelectItem key={worker.id} value={worker.id}>
+                        {worker.full_name || worker.email}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
 
             <div className="space-y-2">
               <label className="text-sm font-medium text-slate-300">Title *</label>
