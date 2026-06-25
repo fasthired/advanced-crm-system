@@ -219,7 +219,7 @@ export function CustomerAudioSection({
               </Button>
             )}
           </div>
-          <p className="text-xs text-slate-500">Supported formats: MP3, WAV, M4A, OGG, WebM, AAC, FLAC. Max 50MB.</p>
+          <p className="text-xs text-slate-500">Supported: AAC, MP3, M4A, WAV, OGG, WebM, FLAC, AMR, WMA, AIFF, and more. Max 50MB.</p>
         </div>
 
         {attachments.length === 0 ? (

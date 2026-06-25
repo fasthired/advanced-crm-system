@@ -1,9 +1,10 @@
 import { NextResponse } from 'next/server';
 import { randomUUID } from 'crypto';
 import {
-  ALLOWED_AUDIO_MIME_TYPES,
   CUSTOMER_AUDIO_BUCKET,
+  getAudioFileExtension,
   MAX_AUDIO_FILE_BYTES,
+  resolveAudioMimeType,
   type CustomerAudioAttachment,
 } from '@/lib/customer-audio';
 import { getAttachmentById, getCustomerAccess } from '@/app/api/customers/_helpers';
@@ -41,13 +42,19 @@ export async function POST(request: Request, context: RouteContext) {
     return NextResponse.json({ error: 'Audio file exceeds the 50MB limit' }, { status: 400 });
   }
 
-  const mimeType = file.type || 'audio/webm';
-  if (!ALLOWED_AUDIO_MIME_TYPES.includes(mimeType as (typeof ALLOWED_AUDIO_MIME_TYPES)[number])) {
-    return NextResponse.json({ error: 'Unsupported audio format' }, { status: 400 });
+  const mimeType = resolveAudioMimeType(file.name, file.type);
+  if (!mimeType) {
+    return NextResponse.json(
+      {
+        error:
+          'Unsupported audio format. Use AAC, MP3, M4A, WAV, OGG, WebM, FLAC, AMR, WMA, AIFF, or similar.',
+      },
+      { status: 400 }
+    );
   }
 
   const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
-  const extension = safeName.includes('.') ? safeName.split('.').pop() : 'webm';
+  const extension = getAudioFileExtension(safeName) || 'webm';
   const attachmentId = randomUUID();
   const storagePath = `customers/${customerId}/${Date.now()}_${attachmentId}.${extension}`;
 

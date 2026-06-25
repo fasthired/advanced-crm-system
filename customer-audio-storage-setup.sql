@@ -22,8 +22,24 @@ VALUES (
     'audio/x-m4a',
     'audio/mp4',
     'audio/aac',
+    'audio/x-aac',
+    'audio/aacp',
+    'audio/vnd.dlna.adts',
     'audio/flac',
-    'audio/x-wav'
+    'audio/x-wav',
+    'audio/x-flac',
+    'audio/opus',
+    'audio/amr',
+    'audio/3gpp',
+    'audio/x-ms-wma',
+    'audio/aiff',
+    'audio/x-aiff',
+    'audio/x-caf',
+    'audio/midi',
+    'audio/x-midi',
+    'audio/vnd.wave',
+    'application/ogg',
+    'application/octet-stream'
   ]
 )
 ON CONFLICT (id) DO UPDATE SET
