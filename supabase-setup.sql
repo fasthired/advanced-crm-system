@@ -34,6 +34,7 @@ CREATE TABLE IF NOT EXISTS customers (
   address TEXT,
   city TEXT,
   country TEXT,
+  website TEXT,
   source TEXT DEFAULT 'direct' CHECK (source IN ('direct', 'referral', 'website', 'phone', 'email', 'other')),
   status TEXT DEFAULT 'lead' CHECK (status IN ('lead', 'prospect', 'qualified', 'customer', 'inactive')),
   value DECIMAL(12, 2) DEFAULT 0,

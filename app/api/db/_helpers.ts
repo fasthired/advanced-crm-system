@@ -72,7 +72,7 @@ export function applyListFilters(query: any, table: string, searchParams: URLSea
   if (search && table === 'customers') {
     const sanitized = search.replace(/[(),]/g, ' ');
     query = query.or(
-      `name.ilike.%${sanitized}%,email.ilike.%${sanitized}%,phone.ilike.%${sanitized}%,company.ilike.%${sanitized}%`
+      `name.ilike.%${sanitized}%,email.ilike.%${sanitized}%,phone.ilike.%${sanitized}%,company.ilike.%${sanitized}%,website.ilike.%${sanitized}%`
     );
   }
 

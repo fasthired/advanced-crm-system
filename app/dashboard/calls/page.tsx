@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Plus, Phone, Trash2, Download } from 'lucide-react';
 import Link from 'next/link';
 import { stringify } from 'csv-stringify/sync';
+import { AudioPlayer } from '@/components/audio-player';
 
 export default function CallsPage() {
   const { user } = useAuth();
@@ -191,7 +192,7 @@ export default function CallsPage() {
                       <td className="py-3 px-4 text-slate-400 text-sm">{new Date(call.created_at).toLocaleString()}</td>
                       <td className="py-3 px-4">
                         {call.recording_url ? (
-                          <audio src={call.recording_url} controls className="w-44 h-8 accent-blue-500" />
+                          <AudioPlayer src={call.recording_url} className="min-w-[280px] p-3" />
                         ) : (
                           <span className="text-xs text-slate-500 italic">No recording</span>
                         )}

@@ -27,6 +27,7 @@ export default function EditCustomerPage() {
     address: '',
     city: '',
     country: '',
+    website: '',
     source: 'direct',
     status: 'lead',
     value: '0',
@@ -57,6 +58,7 @@ export default function EditCustomerPage() {
           address: data.address || '',
           city: data.city || '',
           country: data.country || '',
+          website: data.website || '',
           source: data.source || 'direct',
           status: data.status || 'lead',
           value: data.value ? String(data.value) : '0',
@@ -97,6 +99,7 @@ export default function EditCustomerPage() {
         address: formData.address || null,
         city: formData.city || null,
         country: formData.country || null,
+        website: formData.website || null,
         source: formData.source as any,
         status: formData.status as any,
         value: parseFloat(formData.value) || 0,
@@ -247,6 +250,19 @@ export default function EditCustomerPage() {
                     value={formData.country}
                     onChange={handleChange}
                     placeholder="United States"
+                    disabled={saving}
+                    className="bg-slate-900 border-slate-700 text-white"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-slate-300">Website</label>
+                  <Input
+                    name="website"
+                    type="url"
+                    value={formData.website}
+                    onChange={handleChange}
+                    placeholder="https://example.com"
                     disabled={saving}
                     className="bg-slate-900 border-slate-700 text-white"
                   />

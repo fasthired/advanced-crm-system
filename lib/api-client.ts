@@ -1,4 +1,5 @@
 import { supabase, type Database } from './supabase';
+import { parseCustomerAttachments, type CustomerAudioAttachment } from './customer-audio';
 
 async function getAccessToken() {
   const { data } = await supabase.auth.getSession();
@@ -28,6 +29,30 @@ async function apiRequest<T>(path: string, init: RequestInit = {}): Promise<T> {
   }
 
   return result.data;
+}
+
+async function apiFormRequest<T>(path: string, formData: FormData): Promise<T> {
+  const token = await getAccessToken();
+
+  if (!token) {
+    throw new Error('You must be signed in to access CRM data.');
+  }
+
+  const response = await fetch(path, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+    body: formData,
+  });
+
+  const result = await response.json();
+
+  if (!response.ok) {
+    throw new Error(result.error || 'Request failed');
+  }
+
+  return result;
 }
 
 function queryString(params: Record<string, string | boolean | undefined>) {
@@ -267,6 +292,62 @@ export const activityApi = {
 
   log(activity: Record<string, any>) {
     return tableApi.create<Activity>('activities', activity);
+  },
+};
+
+export const customerAudioApi = {
+  async getAuthHeaders() {
+    const token = await getAccessToken();
+    if (!token) throw new Error('You must be signed in to access CRM data.');
+    return { Authorization: `Bearer ${token}` };
+  },
+
+  list(customerId: string) {
+    return apiRequest<CustomerAudioAttachment[]>(`/api/customers/${customerId}/audio`);
+  },
+
+  async upload(customerId: string, file: File, label?: string) {
+    const formData = new FormData();
+    formData.append('file', file);
+    if (label) formData.append('label', label);
+
+    const result = await apiFormRequest<{
+      data: CustomerAudioAttachment;
+      attachments: CustomerAudioAttachment[];
+    }>(`/api/customers/${customerId}/audio`, formData);
+
+    return {
+      attachment: result.data,
+      attachments: parseCustomerAttachments(result.attachments),
+    };
+  },
+
+  async delete(customerId: string, attachmentId: string) {
+    const token = await getAccessToken();
+    if (!token) throw new Error('You must be signed in to access CRM data.');
+
+    const response = await fetch(
+      `/api/customers/${customerId}/audio?attachmentId=${encodeURIComponent(attachmentId)}`,
+      {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      }
+    );
+
+    const result = await response.json();
+    if (!response.ok) {
+      throw new Error(result.error || 'Request failed');
+    }
+
+    return customerAudioApi.list(customerId);
+  },
+
+  getPlayUrl(customerId: string, attachmentId: string) {
+    return `/api/customers/${customerId}/audio/${attachmentId}/play`;
+  },
+
+  getDownloadUrl(customerId: string, attachmentId: string) {
+    return `/api/customers/${customerId}/audio/${attachmentId}/download`;
   },
 };
 

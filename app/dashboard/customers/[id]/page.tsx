@@ -11,9 +11,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { 
   ArrowLeft, Edit2, Trash2, Plus, Phone, ClipboardList, 
   CheckCircle2, Calendar, User, Building2, MapPin, Mail, 
-  Clock, FileText, Check, Loader2, ArrowUpRight, DollarSign
+  Clock, FileText, Check, Loader2, ArrowUpRight, DollarSign, Globe, ExternalLink
 } from 'lucide-react';
 import Link from 'next/link';
+import { CustomerAudioSection } from '@/components/customer-audio-section';
+import { AudioPlayer } from '@/components/audio-player';
+import { parseCustomerAttachments } from '@/lib/customer-audio';
 
 export default function CustomerDetailPage() {
   const params = useParams();
@@ -213,6 +216,11 @@ export default function CustomerDetailPage() {
   const completedFollowUps = followUps.filter(f => f.completed);
   const pendingTasks = tasks.filter(t => t.status !== 'completed' && t.status !== 'cancelled');
   const completedTasks = tasks.filter(t => t.status === 'completed');
+  const audioAttachments = parseCustomerAttachments(customer.attachments);
+
+  const websiteHref = customer.website
+    ? customer.website.startsWith('http') ? customer.website : `https://${customer.website}`
+    : null;
 
   return (
     <div className="p-6 space-y-6 bg-slate-900 min-h-screen">
@@ -267,7 +275,7 @@ export default function CustomerDetailPage() {
         <div className="lg:col-span-2 space-y-6">
           
           {/* Quick Contact & Summary Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
             <Card className="bg-slate-800/40 border-slate-700/60">
               <CardContent className="p-4 flex items-center gap-3">
                 <div className="p-2.5 bg-blue-500/10 rounded-lg text-blue-400">
@@ -294,6 +302,30 @@ export default function CustomerDetailPage() {
 
             <Card className="bg-slate-800/40 border-slate-700/60">
               <CardContent className="p-4 flex items-center gap-3">
+                <div className="p-2.5 bg-purple-500/10 rounded-lg text-purple-400">
+                  <Globe className="w-5 h-5" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-xs text-slate-400 uppercase font-medium tracking-wide">Website</p>
+                  {websiteHref ? (
+                    <a
+                      href={websiteHref}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-sm font-medium text-blue-400 hover:text-blue-300 truncate mt-0.5 flex items-center gap-1"
+                    >
+                      <span className="truncate">{customer.website}</span>
+                      <ExternalLink className="w-3.5 h-3.5 shrink-0" />
+                    </a>
+                  ) : (
+                    <p className="text-sm font-medium text-white truncate mt-0.5">N/A</p>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="bg-slate-800/40 border-slate-700/60">
+              <CardContent className="p-4 flex items-center gap-3">
                 <div className="p-2.5 bg-yellow-500/10 rounded-lg text-yellow-400">
                   <MapPin className="w-5 h-5" />
                 </div>
@@ -311,8 +343,11 @@ export default function CustomerDetailPage() {
 
           {/* History and Activity Tabs */}
           <Tabs defaultValue="overview" className="space-y-6">
-            <TabsList className="bg-slate-800 border border-slate-700 w-full justify-start p-1 h-auto grid grid-cols-4 gap-1">
+            <TabsList className="bg-slate-800 border border-slate-700 w-full justify-start p-1 h-auto grid grid-cols-2 md:grid-cols-5 gap-1">
               <TabsTrigger value="overview">Overview</TabsTrigger>
+              <TabsTrigger value="audio" className="gap-2">
+                Audio ({audioAttachments.length})
+              </TabsTrigger>
               <TabsTrigger value="calls" className="gap-2">
                 Calls ({calls.length})
               </TabsTrigger>
@@ -355,6 +390,21 @@ export default function CustomerDetailPage() {
                     <span className="text-white font-medium">{customer.phone || '-'}</span>
                   </div>
                   <div className="flex justify-between py-2 border-b border-slate-700/40">
+                    <span className="text-slate-400">Website</span>
+                    {websiteHref ? (
+                      <a
+                        href={websiteHref}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-blue-400 hover:text-blue-300 font-medium truncate max-w-[200px]"
+                      >
+                        {customer.website}
+                      </a>
+                    ) : (
+                      <span className="text-white font-medium">-</span>
+                    )}
+                  </div>
+                  <div className="flex justify-between py-2 border-b border-slate-700/40">
                     <span className="text-slate-400">Company Name</span>
                     <span className="text-white font-medium">{customer.company || '-'}</span>
                   </div>
@@ -384,6 +434,14 @@ export default function CustomerDetailPage() {
                   </div>
                 </CardContent>
               </Card>
+            </TabsContent>
+
+            <TabsContent value="audio" className="space-y-4">
+              <CustomerAudioSection
+                customerId={id}
+                initialAttachments={audioAttachments}
+                onAttachmentsChange={(next) => setCustomer({ ...customer, attachments: next })}
+              />
             </TabsContent>
 
             {/* Calls Tab */}
@@ -433,7 +491,7 @@ export default function CustomerDetailPage() {
                         {call.recording_url && (
                           <div className="mt-2 pt-2 border-t border-slate-700/30 flex flex-col gap-1">
                             <span className="text-[10px] uppercase font-semibold text-slate-500 tracking-wider">Call Recording Playback</span>
-                            <audio src={call.recording_url} controls className="w-full h-8 max-w-md accent-blue-500" />
+                            <AudioPlayer src={call.recording_url} />
                           </div>
                         )}
                       </CardContent>

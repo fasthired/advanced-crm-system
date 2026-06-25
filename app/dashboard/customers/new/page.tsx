@@ -34,6 +34,7 @@ export default function NewCustomerPage() {
     address: '',
     city: '',
     country: '',
+    website: '',
     source: 'direct',
     status: 'lead',
     value: '0',
@@ -69,6 +70,7 @@ export default function NewCustomerPage() {
         address: formData.address || null,
         city: formData.city || null,
         country: formData.country || null,
+        website: formData.website || null,
         source: formData.source as any,
         status: formData.status as any,
         value: parseFloat(formData.value),
@@ -226,6 +228,19 @@ export default function NewCustomerPage() {
                     value={formData.country}
                     onChange={handleChange}
                     placeholder="United States"
+                    disabled={loading}
+                    className="bg-slate-900 border-slate-700 text-white"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-slate-300">Website</label>
+                  <Input
+                    name="website"
+                    type="url"
+                    value={formData.website}
+                    onChange={handleChange}
+                    placeholder="https://example.com"
                     disabled={loading}
                     className="bg-slate-900 border-slate-700 text-white"
                   />

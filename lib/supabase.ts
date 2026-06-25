@@ -48,6 +48,7 @@ export type Database = {
           address: string | null;
           city: string | null;
           country: string | null;
+          website: string | null;
           source: string;
           status: 'lead' | 'prospect' | 'qualified' | 'customer' | 'inactive';
           value: number;
