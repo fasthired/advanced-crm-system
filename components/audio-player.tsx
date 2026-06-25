@@ -1,13 +1,16 @@
 'use client';
 
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Download, Loader2, Pause, Play, Volume2, VolumeX } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { formatAudioDuration } from '@/lib/customer-audio';
+import { formatAudioDuration, isLikelyUnsupportedPlaybackMime } from '@/lib/customer-audio';
 
 type AudioPlayerProps = {
   src: string;
+  /** Bearer token for authenticated play URLs (required for HTML audio on mobile). */
+  authToken?: string;
   fetchHeaders?: Record<string, string>;
+  mimeType?: string;
   title?: string;
   subtitle?: string;
   allowDownload?: boolean;
@@ -16,9 +19,17 @@ type AudioPlayerProps = {
   className?: string;
 };
 
+function buildAuthenticatedSrc(src: string, authToken: string): string {
+  const url = new URL(src, typeof window !== 'undefined' ? window.location.origin : 'http://localhost');
+  url.searchParams.set('access_token', authToken);
+  return `${url.pathname}${url.search}`;
+}
+
 export function AudioPlayer({
   src,
+  authToken,
   fetchHeaders,
+  mimeType,
   title,
   subtitle,
   allowDownload = false,
@@ -28,7 +39,6 @@ export function AudioPlayer({
 }: AudioPlayerProps) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const progressRef = useRef<HTMLDivElement | null>(null);
-  const [blobUrl, setBlobUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -38,91 +48,100 @@ export function AudioPlayer({
   const [isSeeking, setIsSeeking] = useState(false);
   const [downloading, setDownloading] = useState(false);
 
+  const playbackSrc = useMemo(() => {
+    if (authToken) return buildAuthenticatedSrc(src, authToken);
+    return src;
+  }, [src, authToken]);
+
+  const formatError = useMemo(() => {
+    if (!mimeType || !isLikelyUnsupportedPlaybackMime(mimeType)) return null;
+    return 'This audio format is not supported on this device. Try downloading on desktop or re-upload as MP3/M4A.';
+  }, [mimeType]);
+
   useEffect(() => {
-    let active = true;
-    let objectUrl: string | null = null;
-
-    async function loadAudio() {
-      setLoading(true);
-      setError(null);
-      setIsPlaying(false);
-      setCurrentTime(0);
-      setDuration(0);
-
-      try {
-        if (fetchHeaders) {
-          const response = await fetch(src, { headers: fetchHeaders });
-          if (!response.ok) {
-            throw new Error('Unable to load audio');
-          }
-          const blob = await response.blob();
-          objectUrl = URL.createObjectURL(blob);
-          if (active) setBlobUrl(objectUrl);
-        } else {
-          if (active) setBlobUrl(src);
-        }
-      } catch (err: any) {
-        if (active) setError(err.message || 'Failed to load audio');
-      } finally {
-        if (active) setLoading(false);
-      }
+    if (formatError) {
+      setError(formatError);
+      setLoading(false);
     }
-
-    loadAudio();
-
-    return () => {
-      active = false;
-      if (objectUrl) URL.revokeObjectURL(objectUrl);
-    };
-  }, [src, fetchHeaders]);
+  }, [formatError]);
 
   useEffect(() => {
     const audio = audioRef.current;
-    if (!audio || !blobUrl) return;
+    if (!audio || formatError) return;
 
-    audio.src = blobUrl;
+    setLoading(true);
+    setError(null);
+    setIsPlaying(false);
+    setCurrentTime(0);
+    setDuration(0);
+
+    audio.src = playbackSrc;
     audio.load();
-  }, [blobUrl]);
 
-  useEffect(() => {
-    const audio = audioRef.current;
-    if (!audio) return;
-
-    const onLoadedMetadata = () => setDuration(audio.duration || 0);
+    const onLoadedMetadata = () => {
+      setDuration(audio.duration || 0);
+      setLoading(false);
+    };
+    const onCanPlay = () => setLoading(false);
     const onTimeUpdate = () => {
       if (!isSeeking) setCurrentTime(audio.currentTime);
     };
     const onEnded = () => setIsPlaying(false);
     const onPlay = () => setIsPlaying(true);
     const onPause = () => setIsPlaying(false);
+    const onError = () => {
+      setLoading(false);
+      setError(
+        mimeType && isLikelyUnsupportedPlaybackMime(mimeType)
+          ? 'This audio format is not supported on this device. Try MP3 or M4A instead.'
+          : 'Unable to play audio on this device'
+      );
+    };
+    const onWaiting = () => setLoading(true);
+    const onPlaying = () => setLoading(false);
 
     audio.addEventListener('loadedmetadata', onLoadedMetadata);
+    audio.addEventListener('canplay', onCanPlay);
     audio.addEventListener('timeupdate', onTimeUpdate);
     audio.addEventListener('ended', onEnded);
     audio.addEventListener('play', onPlay);
     audio.addEventListener('pause', onPause);
+    audio.addEventListener('error', onError);
+    audio.addEventListener('waiting', onWaiting);
+    audio.addEventListener('playing', onPlaying);
 
     return () => {
       audio.removeEventListener('loadedmetadata', onLoadedMetadata);
+      audio.removeEventListener('canplay', onCanPlay);
       audio.removeEventListener('timeupdate', onTimeUpdate);
       audio.removeEventListener('ended', onEnded);
       audio.removeEventListener('play', onPlay);
       audio.removeEventListener('pause', onPause);
+      audio.removeEventListener('error', onError);
+      audio.removeEventListener('waiting', onWaiting);
+      audio.removeEventListener('playing', onPlaying);
+      audio.pause();
     };
-  }, [blobUrl, isSeeking]);
+  }, [playbackSrc, isSeeking, formatError, mimeType]);
 
-  const togglePlay = async () => {
+  const togglePlay = () => {
     const audio = audioRef.current;
-    if (!audio) return;
+    if (!audio || loading || formatError) return;
 
     if (isPlaying) {
       audio.pause();
-    } else {
-      try {
-        await audio.play();
-      } catch {
-        setError('Playback was blocked by the browser');
-      }
+      return;
+    }
+
+    if (audio.readyState < HTMLMediaElement.HAVE_FUTURE_DATA) {
+      audio.load();
+    }
+
+    const playPromise = audio.play();
+    if (playPromise !== undefined) {
+      playPromise.catch(() => {
+        setError('Tap play again to start audio');
+      });
     }
   };
 
@@ -196,7 +215,7 @@ export function AudioPlayer({
 
   return (
     <div className={`rounded-xl border border-slate-700/60 bg-slate-900/50 p-4 ${className}`}>
-      <audio ref={audioRef} preload="metadata" />
+      <audio ref={audioRef} preload="metadata" playsInline />
 
       {(title || subtitle) && (
         <div className="mb-3 min-w-0">

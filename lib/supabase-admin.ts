@@ -20,7 +20,12 @@ export function getSupabaseAdmin() {
 
 export async function getAuthenticatedUser(request: Request) {
   const authHeader = request.headers.get('authorization');
-  const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
+  let token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
+
+  // HTML audio/video elements cannot send Authorization headers; allow token via query param.
+  if (!token) {
+    token = new URL(request.url).searchParams.get('access_token');
+  }
 
   if (!token) {
     return { user: null, error: 'Missing authorization token' };

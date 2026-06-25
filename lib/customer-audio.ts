@@ -151,3 +151,46 @@ export function formatFileSize(bytes: number): string {
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
+
+const RECORDING_MIME_CANDIDATES = [
+  'audio/mp4',
+  'audio/aac',
+  'audio/webm;codecs=opus',
+  'audio/webm',
+  'audio/ogg;codecs=opus',
+  'audio/ogg',
+] as const;
+
+/** Pick a MediaRecorder MIME type that works on the current device (prefers iOS-safe formats). */
+export function getPreferredRecordingMimeType(): string {
+  if (typeof MediaRecorder === 'undefined') return 'audio/webm';
+
+  for (const mimeType of RECORDING_MIME_CANDIDATES) {
+    if (MediaRecorder.isTypeSupported(mimeType)) return mimeType;
+  }
+
+  return 'audio/webm';
+}
+
+export function getRecordingFileExtension(mimeType: string): string {
+  const base = mimeType.split(';')[0].trim().toLowerCase();
+  if (base === 'audio/mp4' || base === 'audio/aac') return 'm4a';
+  if (base === 'audio/ogg') return 'ogg';
+  return 'webm';
+}
+
+/** Returns true when the browser is unlikely to decode this MIME type (e.g. WebM on iOS). */
+export function isLikelyUnsupportedPlaybackMime(mimeType: string): boolean {
+  if (typeof navigator === 'undefined') return false;
+
+  const base = mimeType.split(';')[0].trim().toLowerCase();
+  const isIOS =
+    /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
+  if (isIOS && (base === 'audio/webm' || base === 'audio/opus')) {
+    return true;
+  }
+
+  return false;
+}

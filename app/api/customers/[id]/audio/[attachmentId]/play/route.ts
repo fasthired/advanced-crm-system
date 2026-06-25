@@ -6,6 +6,50 @@ type RouteContext = {
   params: Promise<{ id: string; attachmentId: string }>;
 };
 
+function buildAudioResponse(
+  buffer: Buffer,
+  mimeType: string,
+  request: Request
+): NextResponse {
+  const total = buffer.length;
+  const commonHeaders: Record<string, string> = {
+    'Content-Type': mimeType,
+    'Content-Disposition': 'inline',
+    'Cache-Control': 'private, no-store',
+    'Accept-Ranges': 'bytes',
+    'X-Content-Type-Options': 'nosniff',
+  };
+
+  const rangeHeader = request.headers.get('range');
+  if (rangeHeader) {
+    const match = /^bytes=(\d+)-(\d*)$/i.exec(rangeHeader.trim());
+    if (match) {
+      const start = Number.parseInt(match[1], 10);
+      const end = match[2] ? Number.parseInt(match[2], 10) : total - 1;
+
+      if (Number.isFinite(start) && start >= 0 && start < total && end >= start && end < total) {
+        const chunk = buffer.subarray(start, end + 1);
+        return new NextResponse(chunk, {
+          status: 206,
+          headers: {
+            ...commonHeaders,
+            'Content-Length': String(chunk.length),
+            'Content-Range': `bytes ${start}-${end}/${total}`,
+          },
+        });
+      }
+    }
+  }
+
+  return new NextResponse(buffer, {
+    status: 200,
+    headers: {
+      ...commonHeaders,
+      'Content-Length': String(total),
+    },
+  });
+}
+
 export async function GET(request: Request, context: RouteContext) {
   const { id: customerId, attachmentId } = await context.params;
   const access = await getCustomerAccess(request, customerId);
@@ -25,15 +69,5 @@ export async function GET(request: Request, context: RouteContext) {
   }
 
   const buffer = Buffer.from(await data.arrayBuffer());
-
-  return new NextResponse(buffer, {
-    status: 200,
-    headers: {
-      'Content-Type': attachment.mime_type,
-      'Content-Length': String(buffer.length),
-      'Content-Disposition': 'inline',
-      'Cache-Control': 'private, no-store',
-      'X-Content-Type-Options': 'nosniff',
-    },
-  });
+  return buildAudioResponse(buffer, attachment.mime_type, request);
 }

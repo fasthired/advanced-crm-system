@@ -9,6 +9,8 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   formatFileSize,
+  getPreferredRecordingMimeType,
+  getRecordingFileExtension,
   type CustomerAudioAttachment,
 } from '@/lib/customer-audio';
 import {
@@ -43,6 +45,7 @@ export function CustomerAudioSection({
   const [error, setError] = useState('');
   const [isRecording, setIsRecording] = useState(false);
   const [recordingSeconds, setRecordingSeconds] = useState(0);
+  const [authToken, setAuthToken] = useState<string | null>(null);
   const [authHeaders, setAuthHeaders] = useState<Record<string, string>>({});
 
   useEffect(() => {
@@ -50,7 +53,11 @@ export function CustomerAudioSection({
   }, [initialAttachments]);
 
   useEffect(() => {
-    customerAudioApi.getAuthHeaders().then(setAuthHeaders);
+    customerAudioApi.getAuthHeaders().then((headers) => {
+      setAuthHeaders(headers);
+      const token = headers.Authorization?.replace(/^Bearer\s+/i, '') ?? null;
+      setAuthToken(token);
+    });
   }, []);
 
   useEffect(() => {
@@ -94,9 +101,8 @@ export function CustomerAudioSection({
     setError('');
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
-        ? 'audio/webm;codecs=opus'
-        : 'audio/webm';
+      const mimeType = getPreferredRecordingMimeType();
+      const extension = getRecordingFileExtension(mimeType);
 
       const recorder = new MediaRecorder(stream, { mimeType });
       chunksRef.current = [];
@@ -107,8 +113,8 @@ export function CustomerAudioSection({
 
       recorder.onstop = async () => {
         stream.getTracks().forEach((track) => track.stop());
-        const blob = new Blob(chunksRef.current, { type: mimeType });
-        const fileName = `recording-${new Date().toISOString().replace(/[:.]/g, '-')}.webm`;
+        const blob = new Blob(chunksRef.current, { type: mimeType.split(';')[0] });
+        const fileName = `recording-${new Date().toISOString().replace(/[:.]/g, '-')}.${extension}`;
         const file = new File([blob], fileName, { type: mimeType.split(';')[0] });
         await uploadFile(file, label || 'Voice recording');
         setRecordingSeconds(0);
@@ -256,10 +262,12 @@ export function CustomerAudioSection({
                   </Button>
                 </div>
 
-                {Object.keys(authHeaders).length > 0 && (
+                {authToken && (
                   <AudioPlayer
                     src={customerAudioApi.getPlayUrl(customerId, attachment.id)}
+                    authToken={authToken}
                     fetchHeaders={authHeaders}
+                    mimeType={attachment.mime_type}
                     title={attachment.label || undefined}
                     subtitle={attachment.label ? attachment.file_name : undefined}
                     allowDownload={isAdmin}
