@@ -1,13 +1,14 @@
 'use client';
 
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Download, Loader2, Pause, Play, Volume2, VolumeX } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { formatAudioDuration, isLikelyUnsupportedPlaybackMime } from '@/lib/customer-audio';
 
 type AudioPlayerProps = {
   src: string;
-  /** Bearer token for authenticated play URLs (required for HTML audio on mobile). */
+  /** API endpoint that returns `{ url: string }` signed playback URL. */
+  signedPlayUrlEndpoint?: string;
   authToken?: string;
   fetchHeaders?: Record<string, string>;
   mimeType?: string;
@@ -19,14 +20,9 @@ type AudioPlayerProps = {
   className?: string;
 };
 
-function buildAuthenticatedSrc(src: string, authToken: string): string {
-  const url = new URL(src, typeof window !== 'undefined' ? window.location.origin : 'http://localhost');
-  url.searchParams.set('access_token', authToken);
-  return `${url.pathname}${url.search}`;
-}
-
 export function AudioPlayer({
   src,
+  signedPlayUrlEndpoint,
   authToken,
   fetchHeaders,
   mimeType,
@@ -39,6 +35,8 @@ export function AudioPlayer({
 }: AudioPlayerProps) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const progressRef = useRef<HTMLDivElement | null>(null);
+  const [playbackSrc, setPlaybackSrc] = useState<string | null>(null);
+  const [resolvingSrc, setResolvingSrc] = useState(Boolean(signedPlayUrlEndpoint && authToken));
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -48,26 +46,61 @@ export function AudioPlayer({
   const [isSeeking, setIsSeeking] = useState(false);
   const [downloading, setDownloading] = useState(false);
 
-  const playbackSrc = useMemo(() => {
-    if (authToken) return buildAuthenticatedSrc(src, authToken);
-    return src;
-  }, [src, authToken]);
-
-  const formatError = useMemo(() => {
-    if (!mimeType || !isLikelyUnsupportedPlaybackMime(mimeType)) return null;
-    return 'This audio format is not supported on this device. Try downloading on desktop or re-upload as MP3/M4A.';
-  }, [mimeType]);
+  const formatError =
+    mimeType && isLikelyUnsupportedPlaybackMime(mimeType)
+      ? 'This audio format is not supported on this device. Try downloading on desktop or re-upload as MP3/M4A.'
+      : null;
 
   useEffect(() => {
-    if (formatError) {
-      setError(formatError);
-      setLoading(false);
+    let active = true;
+
+    async function resolveSrc() {
+      if (formatError) {
+        setError(formatError);
+        setResolvingSrc(false);
+        setLoading(false);
+        return;
+      }
+
+      if (signedPlayUrlEndpoint && authToken) {
+        setResolvingSrc(true);
+        setError(null);
+        try {
+          const response = await fetch(signedPlayUrlEndpoint, {
+            headers: { Authorization: `Bearer ${authToken}` },
+          });
+          const result = await response.json();
+          if (!response.ok) throw new Error(result.error || 'Unable to load audio');
+          if (active) {
+            setPlaybackSrc(result.url);
+            setResolvingSrc(false);
+          }
+        } catch (err: any) {
+          if (active) {
+            setError(err.message || 'Unable to load audio');
+            setResolvingSrc(false);
+            setLoading(false);
+          }
+        }
+        return;
+      }
+
+      if (active) {
+        setPlaybackSrc(src);
+        setResolvingSrc(false);
+      }
     }
-  }, [formatError]);
+
+    resolveSrc();
+
+    return () => {
+      active = false;
+    };
+  }, [src, signedPlayUrlEndpoint, authToken, formatError]);
 
   useEffect(() => {
     const audio = audioRef.current;
-    if (!audio || formatError) return;
+    if (!audio || !playbackSrc || formatError) return;
 
     setLoading(true);
     setError(null);
@@ -79,7 +112,7 @@ export function AudioPlayer({
     audio.load();
 
     const onLoadedMetadata = () => {
-      setDuration(audio.duration || 0);
+      setDuration(Number.isFinite(audio.duration) ? audio.duration : 0);
       setLoading(false);
     };
     const onCanPlay = () => setLoading(false);
@@ -126,7 +159,7 @@ export function AudioPlayer({
 
   const togglePlay = () => {
     const audio = audioRef.current;
-    if (!audio || loading || formatError) return;
+    if (!audio || resolvingSrc || formatError) return;
 
     if (isPlaying) {
       audio.pause();
@@ -212,10 +245,11 @@ export function AudioPlayer({
   };
 
   const progress = duration > 0 ? (currentTime / duration) * 100 : 0;
+  const showControls = !error && !resolvingSrc;
 
   return (
     <div className={`rounded-xl border border-slate-700/60 bg-slate-900/50 p-4 ${className}`}>
-      <audio ref={audioRef} preload="metadata" playsInline />
+      <audio ref={audioRef} preload="auto" playsInline />
 
       {(title || subtitle) && (
         <div className="mb-3 min-w-0">
@@ -224,24 +258,31 @@ export function AudioPlayer({
         </div>
       )}
 
-      {loading ? (
+      {resolvingSrc ? (
         <div className="flex items-center gap-2 text-sm text-slate-400 py-2">
           <Loader2 className="w-4 h-4 animate-spin" />
-          Loading audio...
+          Preparing audio...
         </div>
       ) : error ? (
         <p className="text-sm text-red-400 py-2">{error}</p>
-      ) : (
+      ) : showControls ? (
         <div className="flex items-center gap-3">
           <Button
             type="button"
             size="icon"
             variant="ghost"
             onClick={togglePlay}
+            disabled={loading && !playbackSrc}
             className="h-10 w-10 rounded-full bg-blue-600/20 text-blue-400 hover:bg-blue-600/30 hover:text-blue-300 shrink-0"
             aria-label={isPlaying ? 'Pause' : 'Play'}
           >
-            {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4 ml-0.5" />}
+            {loading ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : isPlaying ? (
+              <Pause className="w-4 h-4" />
+            ) : (
+              <Play className="w-4 h-4 ml-0.5" />
+            )}
           </Button>
 
           <div className="flex-1 min-w-0 space-y-1.5">
@@ -299,7 +340,7 @@ export function AudioPlayer({
             </Button>
           )}
         </div>
-      )}
+      ) : null}
     </div>
   );
 }

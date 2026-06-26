@@ -265,6 +265,10 @@ export function CustomerAudioSection({
                 {authToken && (
                   <AudioPlayer
                     src={customerAudioApi.getPlayUrl(customerId, attachment.id)}
+                    signedPlayUrlEndpoint={customerAudioApi.getSignedPlayUrlEndpoint(
+                      customerId,
+                      attachment.id
+                    )}
                     authToken={authToken}
                     fetchHeaders={authHeaders}
                     mimeType={attachment.mime_type}

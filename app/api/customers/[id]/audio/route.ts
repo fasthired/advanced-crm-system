@@ -4,6 +4,7 @@ import {
   CUSTOMER_AUDIO_BUCKET,
   getAudioFileExtension,
   MAX_AUDIO_FILE_BYTES,
+  normalizeStorageMimeType,
   resolveAudioMimeType,
   type CustomerAudioAttachment,
 } from '@/lib/customer-audio';
@@ -11,6 +12,15 @@ import { getAttachmentById, getCustomerAccess } from '@/app/api/customers/_helpe
 
 type RouteContext = {
   params: Promise<{ id: string }>;
+};
+
+type RegisterAudioPayload = {
+  attachmentId?: string;
+  storagePath?: string;
+  fileName?: string;
+  mimeType?: string;
+  sizeBytes?: number;
+  label?: string | null;
 };
 
 export async function GET(request: Request, context: RouteContext) {
@@ -21,10 +31,85 @@ export async function GET(request: Request, context: RouteContext) {
   return NextResponse.json({ data: access.attachments });
 }
 
+async function registerAttachment(
+  access: Exclude<Awaited<ReturnType<typeof getCustomerAccess>>, { response: NextResponse }>,
+  customerId: string,
+  payload: RegisterAudioPayload
+) {
+  const attachmentId = String(payload.attachmentId || '').trim();
+  const storagePath = String(payload.storagePath || '').trim();
+  const fileName = String(payload.fileName || '').trim();
+  const mimeType = normalizeStorageMimeType(String(payload.mimeType || ''), fileName);
+  const sizeBytes = Number(payload.sizeBytes);
+  const label = payload.label ? String(payload.label).trim() : null;
+
+  if (!attachmentId || !storagePath || !fileName) {
+    return NextResponse.json({ error: 'Missing attachment metadata' }, { status: 400 });
+  }
+
+  if (!Number.isFinite(sizeBytes) || sizeBytes <= 0) {
+    return NextResponse.json({ error: 'Invalid file size' }, { status: 400 });
+  }
+
+  if (sizeBytes > MAX_AUDIO_FILE_BYTES) {
+    return NextResponse.json({ error: 'Audio file exceeds the 50MB limit' }, { status: 400 });
+  }
+
+  if (!resolveAudioMimeType(fileName, mimeType)) {
+    return NextResponse.json({ error: 'Unsupported audio format' }, { status: 400 });
+  }
+
+  const expectedPrefix = `customers/${customerId}/`;
+  if (!storagePath.startsWith(expectedPrefix)) {
+    return NextResponse.json({ error: 'Invalid storage path' }, { status: 400 });
+  }
+
+  const { data: storedFile, error: fileError } = await access.authed.supabase.storage
+    .from(CUSTOMER_AUDIO_BUCKET)
+    .download(storagePath);
+
+  if (fileError || !storedFile) {
+    return NextResponse.json({ error: 'Uploaded file not found in storage' }, { status: 400 });
+  }
+
+  const attachment: CustomerAudioAttachment = {
+    id: attachmentId,
+    storage_path: storagePath,
+    file_name: fileName.replace(/[^a-zA-Z0-9._-]/g, '_'),
+    mime_type: mimeType,
+    size_bytes: sizeBytes,
+    uploaded_by: access.authed.user.id,
+    uploaded_at: new Date().toISOString(),
+    label: label || null,
+  };
+
+  const updatedAttachments = [...access.attachments, attachment];
+
+  const { data: updatedCustomer, error: updateError } = await access.authed.supabase
+    .from('customers')
+    .update({ attachments: updatedAttachments })
+    .eq('id', customerId)
+    .select('attachments')
+    .single();
+
+  if (updateError) {
+    return NextResponse.json({ error: updateError.message }, { status: 500 });
+  }
+
+  return NextResponse.json({ data: attachment, attachments: updatedCustomer.attachments });
+}
+
 export async function POST(request: Request, context: RouteContext) {
   const { id: customerId } = await context.params;
   const access = await getCustomerAccess(request, customerId);
   if ('response' in access) return access.response;
+
+  const contentType = request.headers.get('content-type') || '';
+
+  if (contentType.includes('application/json')) {
+    const payload = (await request.json()) as RegisterAudioPayload;
+    return registerAttachment(access, customerId, payload);
+  }
 
   const formData = await request.formData();
   const file = formData.get('file');
@@ -42,8 +127,9 @@ export async function POST(request: Request, context: RouteContext) {
     return NextResponse.json({ error: 'Audio file exceeds the 50MB limit' }, { status: 400 });
   }
 
-  const mimeType = resolveAudioMimeType(file.name, file.type);
-  if (!mimeType) {
+  const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+  const resolvedMime = resolveAudioMimeType(file.name, file.type);
+  if (!resolvedMime) {
     return NextResponse.json(
       {
         error:
@@ -53,7 +139,7 @@ export async function POST(request: Request, context: RouteContext) {
     );
   }
 
-  const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+  const mimeType = normalizeStorageMimeType(resolvedMime, safeName);
   const extension = getAudioFileExtension(safeName) || 'webm';
   const attachmentId = randomUUID();
   const storagePath = `customers/${customerId}/${Date.now()}_${attachmentId}.${extension}`;

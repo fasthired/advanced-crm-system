@@ -90,6 +90,22 @@ export function getAudioFileExtension(fileName: string): string {
  * Resolve a reliable audio MIME type from the file name and browser-reported type.
  * Returns null when the file does not look like supported audio.
  */
+export function normalizeStorageMimeType(mimeType: string, fileName: string): string {
+  const extension = getAudioFileExtension(fileName);
+  const base = mimeType.split(';')[0].trim().toLowerCase();
+
+  if (!base) {
+    return resolveAudioMimeType(fileName) || '';
+  }
+
+  // iOS Safari plays AAC in an MP4/M4A container more reliably than raw audio/aac.
+  if ((base === 'audio/aac' || base === 'audio/x-aac') && (extension === 'm4a' || extension === 'mp4')) {
+    return 'audio/mp4';
+  }
+
+  return base;
+}
+
 export function resolveAudioMimeType(fileName: string, reportedType = ''): string | null {
   const extension = getAudioFileExtension(fileName);
   const normalizedType = reportedType.split(';')[0].trim().toLowerCase();
@@ -176,6 +192,7 @@ export function getRecordingFileExtension(mimeType: string): string {
   const base = mimeType.split(';')[0].trim().toLowerCase();
   if (base === 'audio/mp4' || base === 'audio/aac') return 'm4a';
   if (base === 'audio/ogg') return 'ogg';
+  if (base === 'audio/mpeg' || base === 'audio/mp3') return 'mp3';
   return 'webm';
 }
 

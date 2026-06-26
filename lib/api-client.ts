@@ -1,5 +1,13 @@
 import { supabase, type Database } from './supabase';
-import { parseCustomerAttachments, type CustomerAudioAttachment } from './customer-audio';
+import {
+  CUSTOMER_AUDIO_BUCKET,
+  getAudioFileExtension,
+  MAX_AUDIO_FILE_BYTES,
+  normalizeStorageMimeType,
+  parseCustomerAttachments,
+  resolveAudioMimeType,
+  type CustomerAudioAttachment,
+} from './customer-audio';
 
 async function getAccessToken() {
   const { data } = await supabase.auth.getSession();
@@ -38,21 +46,31 @@ async function apiFormRequest<T>(path: string, formData: FormData): Promise<T> {
     throw new Error('You must be signed in to access CRM data.');
   }
 
-  const response = await fetch(path, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-    body: formData,
-  });
+  let response: Response;
+  try {
+    response = await fetch(path, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+      body: formData,
+    });
+  } catch {
+    throw new Error('Upload failed — check your connection and try again.');
+  }
 
-  const result = await response.json();
+  let result: { data?: T; attachments?: CustomerAudioAttachment[]; error?: string };
+  try {
+    result = await response.json();
+  } catch {
+    throw new Error(response.ok ? 'Upload failed' : `Upload failed (${response.status})`);
+  }
 
   if (!response.ok) {
     throw new Error(result.error || 'Request failed');
   }
 
-  return result;
+  return result as T;
 }
 
 function queryString(params: Record<string, string | boolean | undefined>) {
@@ -307,17 +325,66 @@ export const customerAudioApi = {
   },
 
   async upload(customerId: string, file: File, label?: string) {
-    const formData = new FormData();
-    formData.append('file', file);
-    if (label) formData.append('label', label);
+    const token = await getAccessToken();
+    if (!token) throw new Error('You must be signed in to access CRM data.');
+    if (!supabase) throw new Error('Storage is not configured.');
 
-    const result = await apiFormRequest<{
-      data: CustomerAudioAttachment;
-      attachments: CustomerAudioAttachment[];
-    }>(`/api/customers/${customerId}/audio`, formData);
+    if (file.size <= 0) throw new Error('Audio file is empty');
+    if (file.size > MAX_AUDIO_FILE_BYTES) {
+      throw new Error('Audio file exceeds the 50MB limit');
+    }
+
+    const resolvedMime = resolveAudioMimeType(file.name, file.type);
+    if (!resolvedMime) {
+      throw new Error(
+        'Unsupported audio format. Use AAC, MP3, M4A, WAV, OGG, WebM, FLAC, AMR, WMA, AIFF, or similar.'
+      );
+    }
+
+    const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+    const mimeType = normalizeStorageMimeType(resolvedMime, safeName);
+    const extension = getAudioFileExtension(safeName) || 'webm';
+    const attachmentId = crypto.randomUUID();
+    const storagePath = `customers/${customerId}/${Date.now()}_${attachmentId}.${extension}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from(CUSTOMER_AUDIO_BUCKET)
+      .upload(storagePath, file, { contentType: mimeType, upsert: false });
+
+    if (uploadError) {
+      throw new Error(uploadError.message || 'Failed to upload audio file');
+    }
+
+    let response: Response;
+    try {
+      response = await fetch(`/api/customers/${customerId}/audio`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          attachmentId,
+          storagePath,
+          fileName: safeName || `recording.${extension}`,
+          mimeType,
+          sizeBytes: file.size,
+          label: label?.trim() || null,
+        }),
+      });
+    } catch {
+      await supabase.storage.from(CUSTOMER_AUDIO_BUCKET).remove([storagePath]);
+      throw new Error('Upload failed — check your connection and try again.');
+    }
+
+    const result = await response.json();
+    if (!response.ok) {
+      await supabase.storage.from(CUSTOMER_AUDIO_BUCKET).remove([storagePath]);
+      throw new Error(result.error || 'Failed to save audio attachment');
+    }
 
     return {
-      attachment: result.data,
+      attachment: result.data as CustomerAudioAttachment,
       attachments: parseCustomerAttachments(result.attachments),
     };
   },
@@ -344,6 +411,10 @@ export const customerAudioApi = {
 
   getPlayUrl(customerId: string, attachmentId: string) {
     return `/api/customers/${customerId}/audio/${attachmentId}/play`;
+  },
+
+  getSignedPlayUrlEndpoint(customerId: string, attachmentId: string) {
+    return `/api/customers/${customerId}/audio/${attachmentId}/play-url`;
   },
 
   getDownloadUrl(customerId: string, attachmentId: string) {
